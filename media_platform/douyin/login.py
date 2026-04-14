@@ -57,7 +57,8 @@ class DouYinLogin(AbstractLogin):
         """
 
         # popup login dialog
-        await self.popup_login_dialog()
+        if config.LOGIN_TYPE == "qrcode" or config.LOGIN_TYPE == "phone":
+            await self.popup_login_dialog()
 
         # select login type
         if config.LOGIN_TYPE == "qrcode":
