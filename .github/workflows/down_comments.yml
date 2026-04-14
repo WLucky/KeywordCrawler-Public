@@ -18,7 +18,7 @@ on:
         required: true
         default: '闪充'
       time_type:
-        description: '选择时间范围'
+        description: '选择时间范围 (0=不限, 1=一天内, 7=一周内, 180=半年内)'
         required: true
         type: choice
         options:
@@ -27,7 +27,6 @@ on:
           - '7'
           - '180'
         default: '0'
-        description: '0=不限, 1=一天内, 7=一周内, 180=半年内'
 
 permissions:
   contents: write
