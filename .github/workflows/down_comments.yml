@@ -26,22 +26,22 @@ on:
           - '1'
           - '7'
           - '180'
-        default: '0'
+        default: '1'
       max_notes:
         description: '爬取视频数量'
         required: true
         type: number
-        default: 15
+        default: 20
       max_comments:
         description: '单视频评论数量'
         required: true
         type: number
-        default: 10
+        default: 20
       enable_sub_comments:
         description: '是否启用二级评论'
         required: true
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -82,15 +82,15 @@ jobs:
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
         
         # 设置环境变量供后续步骤使用
-        echo "PACKAGE_NAME=${SANITIZED_KEYWORDS}-${DATE}.zip" >> $GITHUB_ENV
-        echo "RELEASE_NAME=${SANITIZED_KEYWORDS}-${DATE}" >> $GITHUB_ENV
+        echo "PACKAGE_NAME=${SANITIZED_KEYWORDS}_${DATE}.zip" >> $GITHUB_ENV
+        echo "RELEASE_NAME=${SANITIZED_KEYWORDS}_${DATE}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
-          zip -r "${SANITIZED_KEYWORDS}-${DATE}.zip" data/
-          echo "已创建打包文件: ${SANITIZED_KEYWORDS}-${DATE}.zip"
+          zip -r "${SANITIZED_KEYWORDS}_${DATE}.zip" data/
+          echo "已创建打包文件: ${SANITIZED_KEYWORDS}_${DATE}.zip"
           echo "文件内容:"
-          unzip -l "${SANITIZED_KEYWORDS}-${DATE}.zip"
+          unzip -l "${SANITIZED_KEYWORDS}_${DATE}.zip"
         else
           echo "警告: data 目录不存在"
         fi
