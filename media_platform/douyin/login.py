@@ -77,12 +77,12 @@ class DouYinLogin(AbstractLogin):
             await self.check_page_display_slider(move_step=3, slider_level="hard")
 
         # check login state
-        utils.logger.info(f"[DouYinLogin.begin] login finished then check login state ...")
-        try:
-            await self.check_login_state()
-        except RetryError:
-            utils.logger.info("[DouYinLogin.begin] login failed please confirm ...")
-            sys.exit()
+        # utils.logger.info(f"[DouYinLogin.begin] login finished then check login state ...")
+        # try:
+        #     await self.check_login_state()
+        # except RetryError:
+        #     utils.logger.info("[DouYinLogin.begin] login failed please confirm ...")
+        #     sys.exit()
 
         # wait for redirect
         wait_redirect_seconds = 5
@@ -101,7 +101,7 @@ class DouYinLogin(AbstractLogin):
                 if local_storage.get("HasUserLogin", "") == "1":
                     return True
             except Exception as e:
-                # utils.logger.warn(f"[DouYinLogin] check_login_state waring: {e}")
+                utils.logger.warn(f"[DouYinLogin] check_login_state waring: {e}")
                 await asyncio.sleep(0.1)
 
         if cookie_dict.get("LOGIN_STATUS") == "1":
@@ -273,3 +273,6 @@ class DouYinLogin(AbstractLogin):
                 'domain': ".douyin.com",
                 'path': "/"
             }])
+
+        await self.context_page.goto("https://www.douyin.com")
+        await asyncio.sleep(2)
