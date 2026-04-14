@@ -18,15 +18,14 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # Basic configuration
-PLATFORM = "dy"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu
+PLATFORM = "ks"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu
 
 # 是否使用海外版小红书 (rednote.com)
 # 开启后 API 走 webapi.rednote.com，cookie 域使用 .rednote.com
 XHS_INTERNATIONAL = False
 
 KEYWORDS = "闪充"  # Keyword search configuration, separated by English commas
-LOGIN_TYPE = "qrcode"  # qrcode or phone or cookie
-COOKIES = ""
+LOGIN_TYPE = "cookie"  # qrcode or phone or cookie
 CRAWLER_TYPE = (
     "search"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
 )
@@ -104,10 +103,10 @@ CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 10
 
 # Whether to enable the mode of crawling second-level comments. By default, crawling of second-level comments is not enabled.
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
-ENABLE_GET_SUB_COMMENTS = True
+ENABLE_GET_SUB_COMMENTS = False
 
 # word cloud related
-# Whether to enable generating comment word clouds
+# Whether to enable generating comment word c  louds
 ENABLE_GET_WORDCLOUD = False
 # Custom words and their groups
 # Add rule: xx:yy where xx is a custom-added phrase, and yy is the group name to which the phrase xx is assigned.
@@ -129,10 +128,18 @@ CRAWLER_MAX_SLEEP_SEC = 2
 # 警告：禁用 SSL 验证将使所有流量暴露于中间人攻击风险，请勿在生产环境中开启。
 DISABLE_SSL_VERIFY = False
 
-from .bilibili_config import *
-from .xhs_config import *
-from .dy_config import *
-from .ks_config import *
-from .weibo_config import *
-from .tieba_config import *
-from .zhihu_config import *
+# 根据PLATFORM导入对应的平台配置
+if PLATFORM == "bili":
+    from .bilibili_config import *
+elif PLATFORM == "xhs":
+    from .xhs_config import *
+elif PLATFORM == "dy":
+    from .dy_config import *
+elif PLATFORM == "ks":
+    from .ks_config import *
+elif PLATFORM == "wb":
+    from .weibo_config import *
+elif PLATFORM == "tieba":
+    from .tieba_config import *
+elif PLATFORM == "zhihu":
+    from .zhihu_config import *

@@ -18,6 +18,10 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # Douyin platform configuration
+
+# Cookie configuration
+COOKIES = ""
+
 PUBLISH_TIME_TYPE = 0
 
 # Specify DY video URL list (supports multiple formats)
