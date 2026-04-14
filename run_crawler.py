@@ -4,7 +4,7 @@ import re
 import sys
 import os
 
-def update_config(platform, keywords, time_type=0):
+def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False):
     """更新配置文件中的PLATFORM和KEYWORDS"""
     config_file = 'config/base_config.py'
     
@@ -17,6 +17,15 @@ def update_config(platform, keywords, time_type=0):
     
     # 更新KEYWORDS
     content = re.sub(r'KEYWORDS = ".*"', f'KEYWORDS = "{keywords}"', content)
+    
+    # 更新爬取视频数量
+    content = re.sub(r'CRAWLER_MAX_NOTES_COUNT = \d+', f'CRAWLER_MAX_NOTES_COUNT = {max_notes}', content)
+    
+    # 更新单视频评论数量
+    content = re.sub(r'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = \d+', f'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = {max_comments}', content)
+    
+    # 更新是否启用二级评论
+    content = re.sub(r'ENABLE_GET_SUB_COMMENTS = \w+', f'ENABLE_GET_SUB_COMMENTS = {enable_sub_comments}', content)
     
     # 写回配置文件
     with open(config_file, 'w', encoding='utf-8') as f:
@@ -38,18 +47,24 @@ def update_config(platform, keywords, time_type=0):
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')
+    print(f'已更新爬取视频数量为: {max_notes}')
+    print(f'已更新单视频评论数量为: {max_comments}')
+    print(f'已更新是否启用二级评论为: {enable_sub_comments}')
 
-def run_crawler(platform, keywords, time_type=0):
+def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False):
     """运行单个平台的爬虫"""
     print(f'=========================================')
     print(f'开始爬取平台: {platform}')
     print(f'关键词: {keywords}')
     print(f'时间类型: {time_type}')
+    print(f'爬取视频数量: {max_notes}')
+    print(f'单视频评论数量: {max_comments}')
+    print(f'启用二级评论: {enable_sub_comments}')
     print(f'=========================================')
     
     try:
         # 更新配置
-        update_config(platform, keywords, time_type)
+        update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
         
         # 运行爬虫
         exit_code = os.system('python main.py')
@@ -67,14 +82,20 @@ def run_crawler(platform, keywords, time_type=0):
 def main():
     """主函数"""
     if len(sys.argv) < 3:
-        print('用法: python run_crawler.py <platforms> <keywords> [time_type]')
-        print('示例: python run_crawler.py dy,ks 闪充 0')
+        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments]')
+        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false')
         print('时间类型: 0=不限, 1=一天内, 7=一周内, 180=半年内')
+        print('爬取视频数量: 默认为15')
+        print('单视频评论数量: 默认为10')
+        print('启用二级评论: true/false, 默认为false')
         sys.exit(1)
     
     platforms_str = sys.argv[1]
     keywords = sys.argv[2]
     time_type = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    max_notes = int(sys.argv[4]) if len(sys.argv) > 4 else 15
+    max_comments = int(sys.argv[5]) if len(sys.argv) > 5 else 10
+    enable_sub_comments = sys.argv[6].lower() == 'true' if len(sys.argv) > 6 else False
     
     # 将平台字符串转换为数组
     platforms = [p.strip() for p in platforms_str.split(',')]
@@ -82,7 +103,7 @@ def main():
     # 为每个平台运行爬虫
     for platform in platforms:
         try:
-            run_crawler(platform, keywords, time_type)
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
         except Exception as e:
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')

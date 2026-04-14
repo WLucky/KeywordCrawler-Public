@@ -27,6 +27,21 @@ on:
           - '7'
           - '180'
         default: '0'
+      max_notes:
+        description: '爬取视频数量'
+        required: true
+        type: number
+        default: 15
+      max_comments:
+        description: '单视频评论数量'
+        required: true
+        type: number
+        default: 10
+      enable_sub_comments:
+        description: '是否启用二级评论'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -57,22 +72,25 @@ jobs:
         playwright install
     - name: Update config and run crawler for each platform
       run: |
-        python run_crawler.py "${{ github.event.inputs.platforms }}" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}"
+        python run_crawler.py "${{ github.event.inputs.platforms }}" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}" "${{ github.event.inputs.max_notes }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
     - name: Package data files
       run: |
+        # 获取关键词并替换不允许的字符
         KEYWORDS="${{ github.event.inputs.keywords }}"
+        # 替换逗号和其他不允许的字符为下划线
+        SANITIZED_KEYWORDS=$(echo "$KEYWORDS" | tr ',' '_' | tr ' ' '_' | tr '/' '_')
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
         
         # 设置环境变量供后续步骤使用
-        echo "PACKAGE_NAME=${KEYWORDS}-${DATE}.zip" >> $GITHUB_ENV
-        echo "RELEASE_NAME=${KEYWORDS}-${DATE}" >> $GITHUB_ENV
+        echo "PACKAGE_NAME=${SANITIZED_KEYWORDS}-${DATE}.zip" >> $GITHUB_ENV
+        echo "RELEASE_NAME=${SANITIZED_KEYWORDS}-${DATE}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
-          zip -r "${KEYWORDS}-${DATE}.zip" data/
-          echo "已创建打包文件: ${KEYWORDS}-${DATE}.zip"
+          zip -r "${SANITIZED_KEYWORDS}-${DATE}.zip" data/
+          echo "已创建打包文件: ${SANITIZED_KEYWORDS}-${DATE}.zip"
           echo "文件内容:"
-          unzip -l "${KEYWORDS}-${DATE}.zip"
+          unzip -l "${SANITIZED_KEYWORDS}-${DATE}.zip"
         else
           echo "警告: data 目录不存在"
         fi
