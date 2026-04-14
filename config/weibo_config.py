@@ -20,9 +20,6 @@
 
 # Weibo platform configuration
 
-# Cookie configuration
-COOKIES = ""
-
 # Search type, the specific enumeration value is in media_platform/weibo/field.py
 WEIBO_SEARCH_TYPE = "default"
 

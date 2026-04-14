@@ -19,9 +19,6 @@
 
 # Douyin platform configuration
 
-# Cookie configuration
-COOKIES = ""
-
 PUBLISH_TIME_TYPE = 0
 
 # Specify DY video URL list (supports multiple formats)

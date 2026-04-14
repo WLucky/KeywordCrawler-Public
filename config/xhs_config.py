@@ -20,9 +20,6 @@
 
 # Xiaohongshu platform configuration
 
-# Cookie configuration
-COOKIES = ""
-
 # Sorting method, the specific enumeration value is in media_platform/xhs/field.py
 SORT_TYPE = "popularity_descending"
 

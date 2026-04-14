@@ -19,9 +19,6 @@
 
 # Tieba platform configuration
 
-# Cookie configuration
-COOKIES = ""
-
 # Specify Tieba ID list
 TIEBA_SPECIFIED_ID_LIST = []
 
