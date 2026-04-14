@@ -11,18 +11,23 @@ on:
         required: true
         type: choice
         options:
-          - 'xhs'
           - 'dy'
-          - 'ks'
-          - 'bili'
-          - 'wb'
-          - 'tieba'
-          - 'zhihu'
         default: 'dy'
       keywords:
-        description: '请填写搜索关键词'
+        description: '请填写搜索关键词，用英文逗号分隔'
         required: true
         default: '闪充'
+      time_type:
+        description: '选择时间范围'
+        required: true
+        type: choice
+        options:
+          - '0'
+          - '1'
+          - '7'
+          - '180'
+        default: '0'
+        description: '0=不限, 1=一天内, 7=一周内, 180=半年内'
 
 permissions:
   contents: write
@@ -53,7 +58,7 @@ jobs:
         playwright install
     - name: Update config and run crawler for each platform
       run: |
-        python run_crawler.py "${{ github.event.inputs.platforms }}" "${{ github.event.inputs.keywords }}"
+        python run_crawler.py "${{ github.event.inputs.platforms }}" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}"
     - name: Package data files
       run: |
         KEYWORDS="${{ github.event.inputs.keywords }}"
