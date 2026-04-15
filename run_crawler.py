@@ -85,7 +85,11 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         current_time_range = time_range_mapping.get(time_type, None)
         
         # 更新CURRENT_TIME_RANGE
-        tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {current_time_range}', tavily_content)
+        if current_time_range is None:
+            updated_value = 'None'
+        else:
+            updated_value = f'"{current_time_range}"'
+        tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {updated_value}', tavily_content)
         
         with open(tavily_config_file, 'w', encoding='utf-8') as f:
             f.write(tavily_content)
