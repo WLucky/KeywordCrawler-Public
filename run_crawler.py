@@ -68,6 +68,29 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
             f.write(bili_content)
         
         print(f'已更新B站时间范围为: {start_day} 至 {end_day}')
+    elif platform == 'tavily':
+        tavily_config_file = 'config/tavily_config.py'
+        with open(tavily_config_file, 'r', encoding='utf-8') as f:
+            tavily_content = f.read()
+        
+        # 根据time_type获取时间范围
+        time_range_mapping = {
+            0: None,      # 不限
+            1: "day",     # 一天内
+            7: "week",    # 一周内
+            180: "year",  # 半年内映射到一年
+            365: "year"   # 一年内
+        }
+        
+        current_time_range = time_range_mapping.get(time_type, None)
+        
+        # 更新CURRENT_TIME_RANGE
+        tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {current_time_range}', tavily_content)
+        
+        with open(tavily_config_file, 'w', encoding='utf-8') as f:
+            f.write(tavily_content)
+        
+        print(f'已更新Tavily时间范围为: {current_time_range}')
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')

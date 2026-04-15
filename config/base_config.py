@@ -18,7 +18,7 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # Basic configuration
-PLATFORM = "bili"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu
+PLATFORM = "tavily"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tavily
 
 # 是否使用海外版小红书 (rednote.com)
 # 开启后 API 走 webapi.rednote.com，cookie 域使用 .rednote.com
@@ -56,6 +56,8 @@ elif PLATFORM == "tieba":
     COOKIES = tieba_cookie
 elif PLATFORM == "zhihu":
     COOKIES = zhihu_cookie
+else:
+    COOKIES = ""
 
 # Whether to enable IP proxy
 ENABLE_IP_PROXY = False
@@ -164,3 +166,4 @@ from .ks_config import *
 from .weibo_config import *
 from .tieba_config import *
 from .zhihu_config import *
+from .tavily_config import *

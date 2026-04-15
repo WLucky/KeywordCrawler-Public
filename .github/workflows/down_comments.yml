@@ -13,6 +13,7 @@ on:
         options:
           - 'dy'
           - 'bili'
+          - 'tavily'
         default: 'dy'
       keywords:
         description: '请填写搜索关键词'
@@ -62,6 +63,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest
+        pip install tavily-python
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Set up Node.js
       uses: actions/setup-node@v3
