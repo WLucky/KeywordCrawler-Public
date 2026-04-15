@@ -14,8 +14,7 @@ on:
           - 'dy'
           - 'bili'
           - 'tavily'
-        default:
-          - 'dy'
+        default: ['dy', 'tavily', 'bili']
       keywords:
         description: '请填写搜索关键词'
         required: true
