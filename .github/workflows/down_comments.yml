@@ -14,7 +14,8 @@ on:
           - 'dy'
           - 'bili'
           - 'tavily'
-        default: 'dy'
+        default:
+          - 'dy'
       keywords:
         description: '请填写搜索关键词'
         required: true
@@ -33,7 +34,7 @@ on:
         description: '爬取视频数量'
         required: true
         type: number
-        default: 20
+        default: 15
       max_comments:
         description: '单视频评论数量'
         required: true
@@ -80,6 +81,9 @@ jobs:
         python run_crawler.py "$PLATFORMS" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}" "${{ github.event.inputs.max_notes }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
     - name: Package data files
       run: |
+        # 设置LC_ALL为UTF-8以支持中文字符
+        export LC_ALL=C.UTF-8
+        
         # 获取关键词并替换不允许的字符
         KEYWORDS="${{ github.event.inputs.keywords }}"
         # 替换逗号和其他不允许的字符为下划线
@@ -88,11 +92,12 @@ jobs:
         
         # 设置环境变量供后续步骤使用
         echo "PACKAGE_NAME=${SANITIZED_KEYWORDS}_${DATE}.zip" >> $GITHUB_ENV
-        echo "RELEASE_NAME=${SANITIZED_KEYWORDS}_${DATE}" >> $GITHUB_ENV
+        echo "RELEASE_NAME=${KEYWORDS}_${DATE}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
-          zip -r "${SANITIZED_KEYWORDS}_${DATE}.zip" data/
+          # 使用-UN=UTF8选项确保zip包支持中文
+          zip -r -UN=UTF8 "${SANITIZED_KEYWORDS}_${DATE}.zip" data/
           echo "已创建打包文件: ${SANITIZED_KEYWORDS}_${DATE}.zip"
           echo "文件内容:"
           unzip -l "${SANITIZED_KEYWORDS}_${DATE}.zip"
