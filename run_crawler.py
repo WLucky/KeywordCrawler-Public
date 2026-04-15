@@ -44,6 +44,30 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
             f.write(dy_content)
         
         print(f'已更新抖音时间类型为: {time_type}')
+    elif platform == 'bili':
+        bili_config_file = 'config/bilibili_config.py'
+        with open(bili_config_file, 'r', encoding='utf-8') as f:
+            bili_content = f.read()
+        
+        # 根据时间范围更新START_DAY和END_DAY
+        import datetime
+        today = datetime.date.today()
+        end_day = today.strftime('%Y-%m-%d')
+        
+        # 根据time_type计算start_day
+        if time_type == 0:  # 不限
+            start_day = '2000-01-01'  # 一个较早的日期
+        else:  # 直接使用time_type作为天数
+            start_day = (today - datetime.timedelta(days=time_type)).strftime('%Y-%m-%d')
+        
+        # 更新START_DAY和END_DAY
+        bili_content = re.sub(r'START_DAY = ".*"', f'START_DAY = "{start_day}"', bili_content)
+        bili_content = re.sub(r'END_DAY = ".*"', f'END_DAY = "{end_day}"', bili_content)
+        
+        with open(bili_config_file, 'w', encoding='utf-8') as f:
+            f.write(bili_content)
+        
+        print(f'已更新B站时间范围为: {start_day} 至 {end_day}')
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')

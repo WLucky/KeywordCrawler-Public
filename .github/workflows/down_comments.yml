@@ -9,14 +9,15 @@ on:
       platforms:
         description: '选择要爬取的平台'
         required: true
-        type: choice
+        type: checkbox
         options:
           - 'dy'
+          - 'bili'
         default: 'dy'
       keywords:
-        description: '请填写搜索关键词，用英文逗号分隔'
+        description: '请填写搜索关键词'
         required: true
-        default: '闪充'
+        default: '比亚迪 闪充'
       time_type:
         description: '选择时间范围 (0=不限, 1=一天内, 7=一周内, 180=半年内)'
         required: true
@@ -72,7 +73,9 @@ jobs:
         playwright install
     - name: Update config and run crawler for each platform
       run: |
-        python run_crawler.py "${{ github.event.inputs.platforms }}" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}" "${{ github.event.inputs.max_notes }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
+        # Convert array to comma-separated string
+        PLATFORMS=$(echo "${{ toJSON(github.event.inputs.platforms) }}" | jq -r 'join(",")')
+        python run_crawler.py "$PLATFORMS" "${{ github.event.inputs.keywords }}" "${{ github.event.inputs.time_type }}" "${{ github.event.inputs.max_notes }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
     - name: Package data files
       run: |
         # 获取关键词并替换不允许的字符
