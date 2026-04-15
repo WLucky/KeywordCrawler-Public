@@ -107,16 +107,16 @@ jobs:
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
         
         # 设置环境变量供后续步骤使用
-        echo "PACKAGE_NAME=${SANITIZED_KEYWORDS}_${DATE}.zip" >> $GITHUB_ENV
+        echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
         echo "RELEASE_NAME=${KEYWORDS}_${DATE}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
           # 使用-UN=UTF8选项确保zip包支持中文
-          zip -r -UN=UTF8 "${SANITIZED_KEYWORDS}_${DATE}.zip" data/
-          echo "已创建打包文件: ${SANITIZED_KEYWORDS}_${DATE}.zip"
+          zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
+          echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
           echo "文件内容:"
-          unzip -l "${SANITIZED_KEYWORDS}_${DATE}.zip"
+          unzip -l "${DATE}_${{ github.run_id }}.zip"
         else
           echo "警告: data 目录不存在"
         fi
