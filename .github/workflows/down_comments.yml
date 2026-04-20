@@ -34,7 +34,7 @@ on:
         description: '爬取视频数量'
         required: true
         type: number
-        default: 10
+        default: 15
       max_comments:
         description: '单视频评论数量'
         required: true
@@ -45,6 +45,9 @@ on:
         required: true
         type: boolean
         default: true
+  schedule:
+    # 每天早上8点执行（UTC时间，北京时间需要+8小时，所以是0点UTC）
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
