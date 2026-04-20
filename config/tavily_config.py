@@ -16,11 +16,12 @@ CHUNKS_PER_SOURCE = 5
 INCLUDE_DOMAINS = ["autohome.com.cn","58che.com","pcauto.com.cn","cheshi.com","chexun.com","toutiao.com","dcdapp.com"]
 
 # 时间范围映射
-# 0=不限, 1=一天内, 7=一周内, 180=半年内(映射到一年), 365=一年内
+# 0=不限, 1=一天内, 7=一周内, 30=一个月内, 180=半年内(映射到一年), 365=一年内
 TIME_RANGE_MAPPING = {
     0: None,      # 不限
     1: "day",     # 一天内
     7: "week",    # 一周内
+    30: "month",  # 一个月内
     180: "year",  # 半年内映射到一年
     365: "year"   # 一年内
 }

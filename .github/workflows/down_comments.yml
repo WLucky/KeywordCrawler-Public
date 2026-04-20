@@ -26,20 +26,15 @@ on:
         required: true
         default: '比亚迪 闪充'
       time_type:
-        description: '选择时间范围 (0=不限, 1=一天内, 7=一周内, 180=半年内)'
+        description: '输入时间范围（天数），0表示不限'
         required: true
-        type: choice
-        options:
-          - '0'
-          - '1'
-          - '7'
-          - '180'
-        default: '1'
+        type: number
+        default: 1
       max_notes:
         description: '爬取视频数量'
         required: true
         type: number
-        default: 15
+        default: 10
       max_comments:
         description: '单视频评论数量'
         required: true

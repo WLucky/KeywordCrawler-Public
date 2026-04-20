@@ -4,6 +4,21 @@ import re
 import sys
 import os
 
+# 确保所有 print 语句实时刷新
+class Unbuffered:
+    def __init__(self, stream):
+        self.stream = stream
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+    def writelines(self, datas):
+        self.stream.writelines(datas)
+        self.stream.flush()
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
+sys.stdout = Unbuffered(sys.stdout)
+
 def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False):
     """更新配置文件中的PLATFORM和KEYWORDS"""
     config_file = 'config/base_config.py'
@@ -37,13 +52,24 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(dy_config_file, 'r', encoding='utf-8') as f:
             dy_content = f.read()
         
+        # 将任意天数适配到抖音支持的最小范围
+        # 抖音支持: 0(不限), 1(一天内), 7(一周内), 180(半年内)
+        if time_type == 0:
+            dy_time_type = 0
+        elif time_type <= 1:
+            dy_time_type = 1
+        elif time_type <= 7:
+            dy_time_type = 7
+        else:
+            dy_time_type = 180
+        
         # 更新PUBLISH_TIME_TYPE
-        dy_content = re.sub(r'PUBLISH_TIME_TYPE = \d+', f'PUBLISH_TIME_TYPE = {time_type}', dy_content)
+        dy_content = re.sub(r'PUBLISH_TIME_TYPE = \d+', f'PUBLISH_TIME_TYPE = {dy_time_type}', dy_content)
         
         with open(dy_config_file, 'w', encoding='utf-8') as f:
             f.write(dy_content)
         
-        print(f'已更新抖音时间类型为: {time_type}')
+        print(f'已更新抖音时间类型为: {dy_time_type} (输入: {time_type}天)')
     elif platform == 'bili':
         bili_config_file = 'config/bilibili_config.py'
         with open(bili_config_file, 'r', encoding='utf-8') as f:
@@ -73,28 +99,30 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(tavily_config_file, 'r', encoding='utf-8') as f:
             tavily_content = f.read()
         
-        # 根据time_type获取时间范围
-        time_range_mapping = {
-            0: None,      # 不限
-            1: "day",     # 一天内
-            7: "week",    # 一周内
-            180: "year",  # 半年内映射到一年
-            365: "year"   # 一年内
-        }
-        
-        current_time_range = time_range_mapping.get(time_type, None)
+        # 将任意天数适配到 Tavily 支持的最小范围
+        # Tavily 支持: None(不限), "day"(一天内), "week"(一周内), "month"(一个月内), "year"(一年内)
+        if time_type == 0:
+            tavily_time_range = None
+        elif time_type <= 1:
+            tavily_time_range = "day"
+        elif time_type <= 7:
+            tavily_time_range = "week"
+        elif time_type <= 30:
+            tavily_time_range = "month"
+        else:
+            tavily_time_range = "year"
         
         # 更新CURRENT_TIME_RANGE
-        if current_time_range is None:
+        if tavily_time_range is None:
             updated_value = 'None'
         else:
-            updated_value = f'"{current_time_range}"'
+            updated_value = f'"{tavily_time_range}"'
         tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {updated_value}', tavily_content)
         
         with open(tavily_config_file, 'w', encoding='utf-8') as f:
             f.write(tavily_content)
         
-        print(f'已更新Tavily时间范围为: {current_time_range}')
+        print(f'已更新Tavily时间范围为: {tavily_time_range} (输入: {time_type}天)')
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')
