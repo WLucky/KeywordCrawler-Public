@@ -13,7 +13,8 @@ MAX_RESULTS = 15
 CHUNKS_PER_SOURCE = 5
 
 # 包含的域名
-INCLUDE_DOMAINS = ["autohome.com.cn","58che.com","pcauto.com.cn","cheshi.com","chexun.com","toutiao.com","dcdapp.com"]
+# 设置为空列表以不限制域名
+INCLUDE_DOMAINS = []
 
 # 时间范围映射
 # 0=不限, 1=一天内, 7=一周内, 30=一个月内, 180=半年内(映射到一年), 365=一年内

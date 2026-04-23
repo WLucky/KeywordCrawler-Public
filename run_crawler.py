@@ -56,9 +56,9 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         # 抖音支持: 0(不限), 1(一天内), 7(一周内), 180(半年内)
         if time_type == 0:
             dy_time_type = 0
-        elif time_type <= 1:
+        elif time_type < 7:
             dy_time_type = 1
-        elif time_type <= 7:
+        elif time_type < 180:
             dy_time_type = 7
         else:
             dy_time_type = 180
@@ -103,11 +103,11 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         # Tavily 支持: None(不限), "day"(一天内), "week"(一周内), "month"(一个月内), "year"(一年内)
         if time_type == 0:
             tavily_time_range = None
-        elif time_type <= 1:
+        elif time_type < 7:
             tavily_time_range = "day"
-        elif time_type <= 7:
+        elif time_type < 30:
             tavily_time_range = "week"
-        elif time_type <= 30:
+        elif time_type < 365:
             tavily_time_range = "month"
         else:
             tavily_time_range = "year"
@@ -130,7 +130,9 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
     print(f'已更新单视频评论数量为: {max_comments}')
     print(f'已更新是否启用二级评论为: {enable_sub_comments}')
 
-def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False):
+import time
+
+def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, max_retries=3, retry_delay=5):
     """运行单个平台的爬虫"""
     print(f'=========================================')
     print(f'开始爬取平台: {platform}')
@@ -139,24 +141,36 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     print(f'爬取视频数量: {max_notes}')
     print(f'单视频评论数量: {max_comments}')
     print(f'启用二级评论: {enable_sub_comments}')
+    print(f'最大重试次数: {max_retries}')
+    print(f'重试等待时间: {retry_delay}秒')
     print(f'=========================================')
     
-    try:
-        # 更新配置
-        update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
-        
-        # 运行爬虫
-        exit_code = os.system('python main.py')
-        
-        if exit_code != 0:
-            print(f'警告: 平台 {platform} 爬虫退出码为 {exit_code}')
-        
-        print(f'平台 {platform} 爬取完成')
-    except Exception as e:
-        print(f'错误: 平台 {platform} 爬取失败: {str(e)}')
-        print(f'将继续执行下一个平台...')
-    finally:
-        print('')
+    for attempt in range(max_retries + 1):
+        try:
+            # 更新配置
+            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
+            
+            # 运行爬虫
+            exit_code = os.system('python main.py')
+            
+            if exit_code != 0:
+                print(f'警告: 平台 {platform} 爬虫退出码为 {exit_code}')
+                if attempt < max_retries:
+                    print(f'尝试 {attempt + 1}/{max_retries + 1} 失败，{retry_delay}秒后重试...')
+                    time.sleep(retry_delay)
+                    continue
+            
+            print(f'平台 {platform} 爬取完成')
+            break
+        except Exception as e:
+            print(f'错误: 平台 {platform} 爬取失败: {str(e)}')
+            if attempt < max_retries:
+                print(f'尝试 {attempt + 1}/{max_retries + 1} 失败，{retry_delay}秒后重试...')
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f'已达到最大重试次数 {max_retries}，将继续执行下一个平台...')
+ 
 
 def main():
     """主函数"""
@@ -182,7 +196,7 @@ def main():
     # 为每个平台运行爬虫
     for platform in platforms:
         try:
-            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, max_retries=3, retry_delay=5)
         except Exception as e:
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')
