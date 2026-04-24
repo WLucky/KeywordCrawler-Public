@@ -24,7 +24,7 @@ on:
       keywords:
         description: '请填写搜索关键词'
         required: true
-        default: '比亚迪 闪充'
+        default: '北京车展'
       time_type:
         description: '输入时间范围（天数），0表示不限'
         required: true
