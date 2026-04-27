@@ -45,9 +45,6 @@ on:
         required: true
         type: boolean
         default: true
-  schedule:
-    # 每天早上7点半执行（UTC时间，北京时间需要+8小时，所以是前一天的23:30 UTC）
-    - cron: '30 23 * * *'
 
 permissions:
   contents: write
