@@ -83,7 +83,7 @@ jobs:
         if [ "${{ github.event_name }}" = "schedule" ]; then
           # Default values for scheduled runs
           PLATFORMS="dy,bili,tavily"
-          KEYWORDS="比亚迪 闪充"
+          KEYWORDS="北京车展"
           TIME_TYPE=1
           MAX_NOTES=15
           MAX_COMMENTS=20
