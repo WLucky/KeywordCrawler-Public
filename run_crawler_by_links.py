@@ -131,6 +131,7 @@ def extract_video_links(item, video_links, platform):
 
 def generate_video_download_markdown(platforms, keywords):
     data_dir = Path('data')
+    data_dir.mkdir(exist_ok=True)
     markdown_lines = []
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -245,12 +246,17 @@ def run_crawler_by_links(video_links, max_comments, enable_sub_comments):
     update_config_for_links(video_links, max_comments, enable_sub_comments)
 
     print("开始爬取指定视频链接...")
-    exit_code = os.system(f'python main.py --platform dy --type detail --get_comment true --get_sub_comment {enable_sub_comments}')
+    try:
+        exit_code = os.system(f'python main.py --platform dy --type detail --get_comment true --get_sub_comment {enable_sub_comments}')
+        if exit_code != 0:
+            print(f'警告: 爬虫退出码为 {exit_code}')
+    except Exception as e:
+        print(f'爬虫执行异常: {str(e)}')
 
-    if exit_code != 0:
-        print(f'警告: 爬虫退出码为 {exit_code}')
-
-    generate_video_download_markdown(['dy'], '抖音视频链接')
+    try:
+        generate_video_download_markdown(['dy'], '抖音视频链接')
+    except Exception as e:
+        print(f'生成markdown异常: {str(e)}')
 
 
 def main():
