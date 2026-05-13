@@ -45,9 +45,6 @@ on:
         required: true
         type: boolean
         default: true
-  # schedule:
-  #   # 每天早上7点半执行（UTC时间，北京时间需要+8小时，所以是前一天的23:30 UTC）
-  #   - cron: '30 23 * * *'
 
 permissions:
   contents: write
@@ -79,35 +76,24 @@ jobs:
         playwright install
     - name: Update config and run crawler for each platform
       run: |
-        # Determine if this is a scheduled run or a manual run
-        if [ "${{ github.event_name }}" = "schedule" ]; then
-          # Default values for scheduled runs
-          PLATFORMS="dy,bili,tavily"
-          KEYWORDS="北京车展"
-          TIME_TYPE=1
-          MAX_NOTES=15
-          MAX_COMMENTS=20
-          ENABLE_SUB_COMMENTS=true
-        else
-          # Build platforms string based on boolean inputs
-          PLATFORMS=""
-          if [ "${{ github.event.inputs.enable_dy }}" = "true" ]; then
-            PLATFORMS="${PLATFORMS},dy"
-          fi
-          if [ "${{ github.event.inputs.enable_bili }}" = "true" ]; then
-            PLATFORMS="${PLATFORMS},bili"
-          fi
-          if [ "${{ github.event.inputs.enable_tavily }}" = "true" ]; then
-            PLATFORMS="${PLATFORMS},tavily"
-          fi
-          # Remove leading comma if any
-          PLATFORMS=$(echo "$PLATFORMS" | sed 's/^,//')
-          KEYWORDS="${{ github.event.inputs.keywords }}"
-          TIME_TYPE="${{ github.event.inputs.time_type }}"
-          MAX_NOTES="${{ github.event.inputs.max_notes }}"
-          MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
-          ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
+        # Build platforms string based on boolean inputs
+        PLATFORMS=""
+        if [ "${{ github.event.inputs.enable_dy }}" = "true" ]; then
+          PLATFORMS="${PLATFORMS},dy"
         fi
+        if [ "${{ github.event.inputs.enable_bili }}" = "true" ]; then
+          PLATFORMS="${PLATFORMS},bili"
+        fi
+        if [ "${{ github.event.inputs.enable_tavily }}" = "true" ]; then
+          PLATFORMS="${PLATFORMS},tavily"
+        fi
+        # Remove leading comma if any
+        PLATFORMS=$(echo "$PLATFORMS" | sed 's/^,//')
+        KEYWORDS="${{ github.event.inputs.keywords }}"
+        TIME_TYPE="${{ github.event.inputs.time_type }}"
+        MAX_NOTES="${{ github.event.inputs.max_notes }}"
+        MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
+        ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
         python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS"
     - name: Package data files
       run: |
@@ -115,11 +101,7 @@ jobs:
         export LC_ALL=C.UTF-8
         
         # 获取关键词并替换不允许的字符
-        if [ "${{ github.event_name }}" = "schedule" ]; then
-          KEYWORDS="比亚迪 闪充"
-        else
-          KEYWORDS="${{ github.event.inputs.keywords }}"
-        fi
+        KEYWORDS="${{ github.event.inputs.keywords }}"
         # 替换逗号和其他不允许的字符为下划线
         SANITIZED_KEYWORDS=$(echo "$KEYWORDS" | tr ',' '_' | tr ' ' '_' | tr '/' '_')
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"

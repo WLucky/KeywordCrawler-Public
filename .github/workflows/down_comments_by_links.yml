@@ -51,8 +51,6 @@ jobs:
         playwright install
     - name: Run crawler for video links
       run: |
-        export LC_ALL=C.UTF-8
-        export LANG=C.UTF-8
         python run_crawler_by_links.py "${{ github.event.inputs.video_links }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
     - name: Package data files
       run: |

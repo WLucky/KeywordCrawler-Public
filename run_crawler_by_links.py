@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 
 class Unbuffered:
     def __init__(self, stream):
@@ -247,7 +249,7 @@ def run_crawler_by_links(video_links, max_comments, enable_sub_comments):
 
     print("开始爬取指定视频链接...")
     try:
-        exit_code = os.system(f'python main.py --platform dy --type detail --get_comment true --get_sub_comment {enable_sub_comments}')
+        exit_code = os.system('python main.py')
         if exit_code != 0:
             print(f'警告: 爬虫退出码为 {exit_code}')
     except Exception as e:
