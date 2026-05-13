@@ -27,7 +27,7 @@ XHS_INTERNATIONAL = False
 KEYWORDS = "电池"  # Keyword search configuration, separated by English commas
 LOGIN_TYPE = "cookie"  # qrcode or phone or cookie
 CRAWLER_TYPE = (
-    "detail"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
+    "search"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
 )
 
 

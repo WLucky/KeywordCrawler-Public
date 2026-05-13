@@ -44,7 +44,10 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
     
     # 更新是否启用二级评论
     content = re.sub(r'ENABLE_GET_SUB_COMMENTS = \w+', f'ENABLE_GET_SUB_COMMENTS = {enable_sub_comments}', content)
-    
+
+    # 更新CRAWLER_TYPE为search（关键词搜索模式）
+    content = re.sub(r'(CRAWLER_TYPE = \(\s*)"detail"', r'\1"search"', content)
+
     # 写回配置文件
     with open(config_file, 'w', encoding='utf-8') as f:
         f.write(content)
