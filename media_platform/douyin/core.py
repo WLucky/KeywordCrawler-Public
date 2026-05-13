@@ -167,9 +167,9 @@ class DouYinCrawler(AbstractCrawler):
                         utils.logger.info(f"[DouYinCrawler.search] 已达到用户设置的抓取数量 {user_max_notes}，停止获取更多视频")
                         break
                 
-                # 如果已达到用户设置的抓取数量，停止获取更多页面
-                if len(aweme_list) >= user_max_notes:
-                    break
+                # # 如果已达到用户设置的抓取数量，停止获取更多页面
+                # if len(aweme_list) >= user_max_notes:
+                #     break
                 
                 # Batch get note comments for the current page
                 await self.batch_get_note_comments(page_aweme_list)

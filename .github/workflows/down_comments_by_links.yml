@@ -1,0 +1,124 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: 抖音视频链接评论爬取
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_links:
+        description: '抖音视频链接（英文分号间隔，支持完整链接/短链接/modal_id/纯ID）'
+        required: true
+        default: 'https://www.douyin.com/video/7525538910311632128;https://v.douyin.com/drIPtQ_WPWY/;7202432992642387233'
+      max_comments:
+        description: '单视频评论数量'
+        required: true
+        type: number
+        default: 20
+      enable_sub_comments:
+        description: '是否启用二级评论'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        pip install tavily-python
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.11.0'
+    - name: Install Playwright
+      run: |
+        pip install playwright
+        playwright install
+    - name: Run crawler for video links
+      run: |
+        export LC_ALL=C.UTF-8
+        export LANG=C.UTF-8
+        python run_crawler_by_links.py "${{ github.event.inputs.video_links }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
+    - name: Package data files
+      run: |
+        export LC_ALL=C.UTF-8
+        
+        DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
+        
+        echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+        echo "RELEASE_NAME=抖音视频评论_${DATE}" >> $GITHUB_ENV
+        
+        if [ -d "data" ]; then
+          zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
+          echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
+          echo "文件内容:"
+          unzip -l "${DATE}_${{ github.run_id }}.zip"
+        else
+          echo "警告: data 目录不存在"
+        fi
+
+    - name: Read markdown content for release
+      id: markdown
+      run: |
+        export LC_ALL=C.UTF-8
+        export LANG=C.UTF-8
+        
+        MARKDOWN_FILE=$(find data -name "视频下载链接_*.md" 2>/dev/null | head -n 1)
+        
+        if [ -n "$MARKDOWN_FILE" ] && [ -f "$MARKDOWN_FILE" ]; then
+          echo "找到markdown文件: $MARKDOWN_FILE"
+          CONTENT=$(cat "$MARKDOWN_FILE" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+          echo "MARKDOWN_CONTENT=$CONTENT" >> $GITHUB_OUTPUT
+          echo "HAS_MARKDOWN=true" >> $GITHUB_OUTPUT
+        else
+          echo "未找到markdown文件"
+          echo "HAS_MARKDOWN=false" >> $GITHUB_OUTPUT
+          echo "MARKDOWN_CONTENT=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@master
+      with:
+        tag_name: VideoLinks-${{ github.run_id }}
+        name: ${{ env.RELEASE_NAME }}
+        body: |
+          ### 数据下载
+          
+          点击下方附件下载完整数据包。
+          
+          ### 视频下载链接汇总
+          
+          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频下载链接）' }}
+          
+          ### 数据内容
+          - 视频元数据
+          - 视频评论数据
+          - 创作者信息
+          - 视频下载链接汇总（Markdown格式）
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload data files as release assets
+      uses: softprops/action-gh-release@v2.1.0
+      with:
+        tag_name: VideoLinks-${{ github.run_id }}
+        files: ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

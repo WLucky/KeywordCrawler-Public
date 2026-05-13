@@ -18,7 +18,7 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # Basic configuration
-PLATFORM = "bili"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tavily
+PLATFORM = "dy"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tavily
 
 # 是否使用海外版小红书 (rednote.com)
 # 开启后 API 走 webapi.rednote.com，cookie 域使用 .rednote.com
@@ -27,7 +27,7 @@ XHS_INTERNATIONAL = False
 KEYWORDS = "电池"  # Keyword search configuration, separated by English commas
 LOGIN_TYPE = "cookie"  # qrcode or phone or cookie
 CRAWLER_TYPE = (
-    "search"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
+    "detail"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
 )
 
 
@@ -126,7 +126,7 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # Control the number of crawled videos/posts
-CRAWLER_MAX_NOTES_COUNT = 2
+CRAWLER_MAX_NOTES_COUNT = 3
 
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1
