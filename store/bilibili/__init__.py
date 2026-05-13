@@ -56,6 +56,10 @@ async def update_bilibili_video(video_item: Dict):
     video_user_info: Dict = video_item_view.get("owner")
     video_item_stat: Dict = video_item_view.get("stat")
     video_id = str(video_item_view.get("aid"))
+    
+    # 从video_item中提取视频下载URL
+    video_download_url = video_item_view.get("video_download_url", "") or video_item.get("video_download_url", "")
+    
     save_content_item = {
         "video_id": video_id,
         "video_type": "video",
@@ -76,6 +80,7 @@ async def update_bilibili_video(video_item: Dict):
         "last_modify_ts": utils.get_current_timestamp(),
         "video_url": f"https://www.bilibili.com/video/av{video_id}",
         "video_cover_url": video_item_view.get("pic", ""),
+        "video_download_url": video_download_url,
         "source_keyword": source_keyword_var.get(),
     }
     utils.logger.info(f"[store.bilibili.update_bilibili_video] bilibili video id:{video_id}, title:{save_content_item.get('title')}")
@@ -231,3 +236,14 @@ async def update_bilibili_creator_dynamic(creator_info: Dict, dynamic_info: Dict
     }
 
     await BiliStoreFactory.create_store().store_dynamic(dynamic_item=save_dynamic_item)
+
+
+async def save_bili_video_download_url(aid: int, video_url: str):
+    """
+    记录B站视频的真实下载链接（URL已直接保存到CSV中，此函数仅用于日志记录）
+
+    Args:
+        aid: 视频ID
+        video_url: 视频真实下载URL
+    """
+    utils.logger.info(f"[store.bilibili.save_bili_video_download_url] 视频 {aid} 下载链接已保存到CSV")

@@ -183,14 +183,14 @@ class BilibiliCrawler(AbstractCrawler):
         """
         utils.logger.info("[BilibiliCrawler.search_by_keywords] Begin search bilibli keywords")
         bili_limit_count = 20  # bilibili limit page fixed value
-        if config.CRAWLER_MAX_NOTES_COUNT < bili_limit_count:
-            config.CRAWLER_MAX_NOTES_COUNT = bili_limit_count
+        user_max_notes = config.CRAWLER_MAX_NOTES_COUNT  # 保存用户设置的抓取数量
         start_page = config.START_PAGE  # start page number
         for keyword in config.KEYWORDS.split(","):
             source_keyword_var.set(keyword)
             utils.logger.info(f"[BilibiliCrawler.search_by_keywords] Current search keyword: {keyword}")
             page = 1
-            while (page - start_page + 1) * bili_limit_count <= config.CRAWLER_MAX_NOTES_COUNT:
+            total_crawled = 0
+            while total_crawled < user_max_notes:
                 if page < start_page:
                     utils.logger.info(f"[BilibiliCrawler.search_by_keywords] Skip page: {page}")
                     page += 1
@@ -220,11 +220,19 @@ class BilibiliCrawler(AbstractCrawler):
                     utils.logger.warning(f"[BilibiliCrawler.search_by_keywords] error in the task list. The video for this page will not be included. {e}")
                 video_items = await asyncio.gather(*task_list)
                 for video_item in video_items:
-                    if video_item:
+                    if video_item and total_crawled < user_max_notes:
                         video_id_list.append(video_item.get("View").get("aid"))
                         await bilibili_store.update_bilibili_video(video_item)
                         await bilibili_store.update_up_info(video_item)
                         await self.get_bilibili_video(video_item, semaphore)
+                        total_crawled += 1
+                        utils.logger.info(f"[BilibiliCrawler.search_by_keywords] 已抓取 {total_crawled}/{user_max_notes} 个视频")
+                
+                # 如果已达到用户设置的抓取数量，停止获取更多页面
+                if total_crawled >= user_max_notes:
+                    utils.logger.info(f"[BilibiliCrawler.search_by_keywords] 已达到用户设置的抓取数量 {user_max_notes}，停止获取更多视频")
+                    break
+                
                 page += 1
 
                 # Sleep after page navigation

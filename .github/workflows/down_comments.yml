@@ -127,6 +127,7 @@ jobs:
         # 设置环境变量供后续步骤使用
         echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
         echo "RELEASE_NAME=${KEYWORDS}_${DATE}" >> $GITHUB_ENV
+        echo "SANITIZED_KEYWORDS=${SANITIZED_KEYWORDS}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
@@ -139,13 +140,47 @@ jobs:
           echo "警告: data 目录不存在"
         fi
 
+    - name: Read markdown content for release
+      id: markdown
+      run: |
+        # 设置UTF-8编码
+        export LC_ALL=C.UTF-8
+        export LANG=C.UTF-8
+        
+        # 查找markdown文件
+        MARKDOWN_FILE=$(find data -name "视频下载链接_*.md" 2>/dev/null | head -n 1)
+        
+        if [ -n "$MARKDOWN_FILE" ] && [ -f "$MARKDOWN_FILE" ]; then
+          echo "找到markdown文件: $MARKDOWN_FILE"
+          # 读取内容并转义特殊字符用于JSON
+          CONTENT=$(cat "$MARKDOWN_FILE" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+          echo "MARKDOWN_CONTENT=$CONTENT" >> $GITHUB_OUTPUT
+          echo "HAS_MARKDOWN=true" >> $GITHUB_OUTPUT
+        else
+          echo "未找到markdown文件"
+          echo "HAS_MARKDOWN=false" >> $GITHUB_OUTPUT
+          echo "MARKDOWN_CONTENT=" >> $GITHUB_OUTPUT
+        fi
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@master
       with:
-        tag_name: Comments-${{ github.run_id }}  # 使用唯一的run_id
+        tag_name: Comments-${{ github.run_id }}
         name: ${{ env.RELEASE_NAME }}
         body: |
-          ### 数据见下方附件  
+          ### 数据下载
+          
+          点击下方附件下载完整数据包。
+          
+          ### 视频下载链接汇总
+          
+          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频下载链接）' }}
+          
+          ### 数据内容
+          - 各平台视频元数据
+          - 视频评论数据
+          - 创作者信息
+          - 视频下载链接汇总（Markdown格式）
         draft: false
         prerelease: false
       env:

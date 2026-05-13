@@ -43,8 +43,8 @@ BILI_CREATOR_ID_LIST = [
 ]
 
 # Specify time range
-START_DAY = "2024-01-01"
-END_DAY = "2024-01-01"
+START_DAY = "2026-05-12"
+END_DAY = "2026-05-13"
 
 # Search mode
 BILI_SEARCH_MODE = "all_in_time_range"

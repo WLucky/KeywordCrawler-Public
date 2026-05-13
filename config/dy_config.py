@@ -19,7 +19,7 @@
 
 # Douyin platform configuration
 
-PUBLISH_TIME_TYPE = 0
+PUBLISH_TIME_TYPE = 1
 
 # Specify DY video URL list (supports multiple formats)
 # Supported formats:

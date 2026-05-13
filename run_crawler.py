@@ -3,6 +3,9 @@
 import re
 import sys
 import os
+import json
+from pathlib import Path
+from datetime import datetime
 
 # 确保所有 print 语句实时刷新
 class Unbuffered:
@@ -81,8 +84,8 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         end_day = today.strftime('%Y-%m-%d')
         
         # 根据time_type计算start_day
-        if time_type == 0:  # 不限
-            start_day = '2000-01-01'  # 一个较早的日期
+        if time_type == 0:  # 不限（从10年前到现在）
+            start_day = (today - datetime.timedelta(days=3650)).strftime('%Y-%m-%d')  # 10年前
         else:  # 直接使用time_type作为天数
             start_day = (today - datetime.timedelta(days=time_type)).strftime('%Y-%m-%d')
         
@@ -201,6 +204,239 @@ def main():
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')
             print('')
+
+def generate_video_download_markdown(platforms, keywords):
+    """
+    生成视频下载链接的markdown文件
+    
+    Args:
+        platforms: 平台列表
+        keywords: 搜索关键词
+    """
+    data_dir = Path('data')
+    markdown_lines = []
+    
+    # 添加标题和时间
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    markdown_lines.append(f"# 视频下载链接汇总")
+    markdown_lines.append(f"")
+    markdown_lines.append(f"**搜索关键词**: {keywords}")
+    markdown_lines.append(f"**生成时间**: {timestamp}")
+    markdown_lines.append(f"")
+    
+    for platform in platforms:
+        markdown_lines.append(f"## {get_platform_name(platform)}")
+        markdown_lines.append(f"")
+        
+        # 查找内容文件 - 支持多种存储路径
+        content_files = []
+        platform_name = get_platform_name(platform)
+        
+        # 搜索路径：data/csv/ 目录（全局CSV存储）
+        csv_dir = data_dir / 'csv'
+        if csv_dir.exists():
+            for ext in ['csv']:
+                content_files.extend(list(csv_dir.glob(f'*{platform}*contents*.{ext}')))
+                content_files.extend(list(csv_dir.glob(f'*{platform_name}*contents*.{ext}')))
+                # 也搜索完整平台名称
+                platform_full_names = {
+                    'dy': 'douyin',
+                    'bili': 'bilibili',
+                    'xhs': 'xiaohongshu',
+                    'ks': 'kuaishou',
+                    'wb': 'weibo'
+                }
+                if platform in platform_full_names:
+                    content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*contents*.{ext}')))
+        
+        # 搜索路径：data/{platform}/ 目录
+        platform_dir = data_dir / platform
+        if platform_dir.exists():
+            for ext in ['json', 'jsonl', 'csv']:
+                content_files.extend(list(platform_dir.glob(f'**/*contents*.{ext}')))
+        
+        # 搜索路径：data/ 根目录
+        for ext in ['json', 'jsonl']:
+            content_files.extend(list(data_dir.glob(f'*{platform}*contents*.{ext}')))
+        
+        # 去重文件列表
+        content_files = list(set(content_files))
+        
+        print(f"找到 {len(content_files)} 个内容文件")
+        for f in content_files:
+            print(f"  - {f}")
+        
+        # 提取视频下载链接
+        video_links = []
+        for content_file in content_files:
+            try:
+                if content_file.suffix == '.json':
+                    with open(content_file, 'r', encoding='utf-8') as f:
+                        items = json.load(f)
+                        if isinstance(items, list):
+                            for item in items:
+                                extract_video_links(item, video_links, platform)
+                        elif isinstance(items, dict):
+                            extract_video_links(items, video_links, platform)
+                
+                elif content_file.suffix == '.jsonl':
+                    with open(content_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                try:
+                                    item = json.loads(line)
+                                    extract_video_links(item, video_links, platform)
+                                except json.JSONDecodeError:
+                                    continue
+                
+                elif content_file.suffix == '.csv':
+                    import csv
+                    # 处理带有BOM的UTF-8文件
+                    with open(content_file, 'r', encoding='utf-8-sig', errors='replace') as f:
+                        reader = csv.DictReader(f)
+                        print(f"CSV文件列头: {reader.fieldnames}")
+                        for row in reader:
+                            extract_video_links(row, video_links, platform)
+            
+            except Exception as e:
+                print(f"读取文件 {content_file} 时出错: {str(e)}")
+        
+        print(f"从文件中提取到 {len(video_links)} 个视频链接")
+        
+        # 去重并添加到markdown
+        seen_urls = set()
+        for idx, (title, url) in enumerate(video_links, 1):
+            if url not in seen_urls:
+                seen_urls.add(url)
+                # 限制标题长度
+                display_title = title[:50] + '...' if len(title) > 50 else title
+                markdown_lines.append(f"{idx}. [{display_title}]({url})")
+        
+        if not video_links:
+            markdown_lines.append(f"- 暂无视频下载链接")
+        
+        markdown_lines.append(f"")
+    
+    # 写入markdown文件
+    sanitized_keywords = keywords.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+    markdown_filename = data_dir / f"视频下载链接_{sanitized_keywords}.md"
+    
+    with open(markdown_filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(markdown_lines))
+    
+    print(f"\n已生成视频下载链接markdown文件: {markdown_filename}")
+
+
+def extract_video_links(item, video_links, platform):
+    """
+    从内容项中提取视频下载链接
+
+    Args:
+        item: 内容项字典
+        video_links: 视频链接列表（用于追加）
+        platform: 平台名称
+    """
+    url = None
+    title = None
+
+    # 根据不同平台和字段名提取链接
+    url_fields = [
+        'video_download_url',
+        'video_url',
+        'aweme_url',
+        'video_play_url',
+        'note_url',
+        'content_url',
+        'download_url'
+    ]
+
+    title_fields = [
+        'title',
+        'desc',
+        'aweme_id',
+        'video_id',
+        'note_id',
+        'content_id'
+    ]
+
+    for field in url_fields:
+        if field in item and item[field]:
+            url = item[field]
+            break
+
+    for field in title_fields:
+        if field in item and item[field]:
+            title = str(item[field])
+            break
+
+    if url:
+        if not title:
+            title = f"{get_platform_name(platform)}视频"
+        video_links.append((title, url))
+
+
+def get_platform_name(platform):
+    """
+    获取平台中文名称
+    
+    Args:
+        platform: 平台缩写
+    
+    Returns:
+        平台中文名称
+    """
+    platform_names = {
+        'dy': '抖音',
+        'douyin': '抖音',
+        'bili': '哔哩哔哩',
+        'bilibili': '哔哩哔哩',
+        'xhs': '小红书',
+        'xiaohongshu': '小红书',
+        'ks': '快手',
+        'kuaishou': '快手',
+        'wb': '微博',
+        'weibo': '微博',
+        'zhihu': '知乎',
+        'tieba': '贴吧',
+        'tavily': 'Tavily'
+    }
+    return platform_names.get(platform.lower(), platform)
+
+
+def main():
+    """主函数"""
+    if len(sys.argv) < 3:
+        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments]')
+        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false')
+        print('时间类型: 0=不限, 1=一天内, 7=一周内, 180=半年内')
+        print('爬取视频数量: 默认为15')
+        print('单视频评论数量: 默认为10')
+        print('启用二级评论: true/false, 默认为false')
+        sys.exit(1)
+    
+    platforms_str = sys.argv[1]
+    keywords = sys.argv[2]
+    time_type = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    max_notes = int(sys.argv[4]) if len(sys.argv) > 4 else 15
+    max_comments = int(sys.argv[5]) if len(sys.argv) > 5 else 10
+    enable_sub_comments = sys.argv[6].lower() == 'true' if len(sys.argv) > 6 else False
+    
+    # 将平台字符串转换为数组
+    platforms = [p.strip() for p in platforms_str.split(',')]
+    
+    # 为每个平台运行爬虫
+    for platform in platforms:
+        try:
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, max_retries=3, retry_delay=5)
+        except Exception as e:
+            print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
+            print(f'将继续执行下一个平台...')
+            print('')
+    
+    # 生成视频下载链接markdown文件
+    generate_video_download_markdown(platforms, keywords)
+
 
 if __name__ == '__main__':
     main()
