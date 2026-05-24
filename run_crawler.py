@@ -22,7 +22,7 @@ class Unbuffered:
 
 sys.stdout = Unbuffered(sys.stdout)
 
-def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False):
+def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3):
     """更新配置文件中的PLATFORM和KEYWORDS"""
     config_file = 'config/base_config.py'
     
@@ -41,6 +41,10 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
     
     # 更新单视频评论数量
     content = re.sub(r'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = \d+', f'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = {max_comments}', content)
+    
+    # 更新是否启用评论获取（如果指定了评论数量，则启用）
+    enable_get_comments = max_comments > 0
+    content = re.sub(r'ENABLE_GET_COMMENTS = \w+', f'ENABLE_GET_COMMENTS = {enable_get_comments}', content)
     
     # 更新是否启用二级评论
     content = re.sub(r'ENABLE_GET_SUB_COMMENTS = \w+', f'ENABLE_GET_SUB_COMMENTS = {enable_sub_comments}', content)
@@ -124,10 +128,18 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
             updated_value = f'"{tavily_time_range}"'
         tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {updated_value}', tavily_content)
         
+        # 更新ENABLE_TAVILY_IMG
+        tavily_content = re.sub(r'ENABLE_TAVILY_IMG = \w+', f'ENABLE_TAVILY_IMG = {enable_tavily_img}', tavily_content)
+        
+        # 更新MAX_IMAGES_PER_RESULT
+        tavily_content = re.sub(r'MAX_IMAGES_PER_RESULT = \d+', f'MAX_IMAGES_PER_RESULT = {max_images_per_result}', tavily_content)
+        
         with open(tavily_config_file, 'w', encoding='utf-8') as f:
             f.write(tavily_content)
         
         print(f'已更新Tavily时间范围为: {tavily_time_range} (输入: {time_type}天)')
+        print(f'已更新Tavily图片下载为: {enable_tavily_img}')
+        print(f'已更新Tavily最大图片数量为: {max_images_per_result}')
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')
@@ -137,7 +149,7 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
 
 import time
 
-def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, max_retries=3, retry_delay=5):
+def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, max_retries=3, retry_delay=5):
     """运行单个平台的爬虫"""
     print(f'=========================================')
     print(f'开始爬取平台: {platform}')
@@ -146,6 +158,8 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     print(f'爬取视频数量: {max_notes}')
     print(f'单视频评论数量: {max_comments}')
     print(f'启用二级评论: {enable_sub_comments}')
+    print(f'Tavily图片下载: {enable_tavily_img}')
+    print(f'每个搜索结果最大图片数: {max_images_per_result}')
     print(f'最大重试次数: {max_retries}')
     print(f'重试等待时间: {retry_delay}秒')
     print(f'=========================================')
@@ -153,7 +167,7 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     for attempt in range(max_retries + 1):
         try:
             # 更新配置
-            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments)
+            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result)
             
             # 运行爬虫
             exit_code = os.system('python main.py')
@@ -338,6 +352,9 @@ def generate_video_download_markdown(platforms, keywords):
 
         markdown_lines.append(f"")
     
+    # 添加图片信息（如果存在）
+    markdown_lines = add_images_to_markdown(markdown_lines, keywords)
+    
     # 写入markdown文件
     sanitized_keywords = keywords.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
     markdown_filename = data_dir / f"视频下载链接_{sanitized_keywords}.md"
@@ -346,6 +363,80 @@ def generate_video_download_markdown(platforms, keywords):
         f.write('\n'.join(markdown_lines))
     
     print(f"\n已生成视频下载链接markdown文件: {markdown_filename}")
+
+
+def add_images_to_markdown(markdown_lines, keywords):
+    """
+    将图片信息添加到markdown中
+    
+    Args:
+        markdown_lines: 现有的markdown行列表
+        keywords: 搜索关键词
+    
+    Returns:
+        更新后的markdown行列表
+    """
+    data_dir = Path('data')
+    images_dir = data_dir / 'images'
+    image_config_path = images_dir / 'image_config.json'
+    
+    if not image_config_path.exists():
+        return markdown_lines
+    
+    try:
+        with open(image_config_path, 'r', encoding='utf-8') as f:
+            image_config = json.load(f)
+        
+        if not image_config:
+            return markdown_lines
+        
+        # 添加图片部分标题
+        markdown_lines.append(f"## 图片列表（共{len(image_config)}张）")
+        markdown_lines.append(f"")
+        
+        for idx, img_info in enumerate(image_config, 1):
+            filename = img_info.get('filename', '')
+            url = img_info.get('url', '')
+            source_title = img_info.get('source_title', '')
+            source_url = img_info.get('source_url', '')
+            description = img_info.get('description', '')
+            download_time = img_info.get('download_time', '')
+            
+            markdown_lines.append(f"### {idx}. {filename}")
+            markdown_lines.append(f"")
+            markdown_lines.append(f"![图片{idx}](images/{filename})")
+            markdown_lines.append(f"")
+            
+            if source_title and source_url:
+                display_title = source_title[:50] + '...' if len(source_title) > 50 else source_title
+                markdown_lines.append(f"- **来源**: [{display_title}]({source_url})")
+            elif source_title:
+                markdown_lines.append(f"- **来源**: {source_title}")
+            
+            if url:
+                markdown_lines.append(f"- **原始URL**: {url}")
+            
+            if description:
+                markdown_lines.append(f"- **描述**: {description}")
+            
+            if download_time:
+                markdown_lines.append(f"- **下载时间**: {download_time}")
+            
+            markdown_lines.append(f"")
+        
+        # 删除单独的图片下载链接文件（如果存在）
+        image_md_path = data_dir / f"图片下载链接_{keywords}.md"
+        if image_md_path.exists():
+            try:
+                os.remove(image_md_path)
+                print(f"已删除单独的图片下载链接文件: {image_md_path}")
+            except Exception as e:
+                print(f"删除图片下载链接文件失败: {str(e)}")
+        
+    except Exception as e:
+        print(f"读取图片配置文件失败: {str(e)}")
+    
+    return markdown_lines
 
 
 def extract_video_links(item, video_links, platform):
@@ -436,12 +527,14 @@ def get_platform_name(platform):
 def main():
     """主函数"""
     if len(sys.argv) < 3:
-        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments]')
-        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false')
+        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments] [enable_tavily_img] [max_images_per_result]')
+        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false false 3')
         print('时间类型: 0=不限, 1=一天内, 7=一周内, 180=半年内')
         print('爬取视频数量: 默认为15')
         print('单视频评论数量: 默认为10')
         print('启用二级评论: true/false, 默认为false')
+        print('Tavily图片下载: true/false, 默认为false')
+        print('每个搜索结果最大图片数: 默认为3')
         sys.exit(1)
     
     platforms_str = sys.argv[1]
@@ -450,6 +543,8 @@ def main():
     max_notes = int(sys.argv[4]) if len(sys.argv) > 4 else 15
     max_comments = int(sys.argv[5]) if len(sys.argv) > 5 else 10
     enable_sub_comments = sys.argv[6].lower() == 'true' if len(sys.argv) > 6 else False
+    enable_tavily_img = sys.argv[7].lower() == 'true' if len(sys.argv) > 7 else False
+    max_images_per_result = int(sys.argv[8]) if len(sys.argv) > 8 else 3
     
     # 将平台字符串转换为数组
     platforms = [p.strip() for p in platforms_str.split(',')]
@@ -457,7 +552,7 @@ def main():
     # 为每个平台运行爬虫
     for platform in platforms:
         try:
-            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, max_retries=3, retry_delay=5)
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, max_retries=3, retry_delay=5)
         except Exception as e:
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')

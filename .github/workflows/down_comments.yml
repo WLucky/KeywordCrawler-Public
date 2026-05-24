@@ -45,6 +45,16 @@ on:
         required: true
         type: boolean
         default: true
+      enable_tavily_img:
+        description: 'Tavily图片下载'
+        required: true
+        type: boolean
+        default: false
+      max_images_per_result:
+        description: '每个搜索结果最多下载的图片数'
+        required: true
+        type: number
+        default: 5
 
 permissions:
   contents: write
@@ -94,7 +104,9 @@ jobs:
         MAX_NOTES="${{ github.event.inputs.max_notes }}"
         MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
         ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
-        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS"
+        ENABLE_TAVILY_IMG="${{ github.event.inputs.enable_tavily_img }}"
+        MAX_IMAGES_PER_RESULT="${{ github.event.inputs.max_images_per_result }}"
+        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_TAVILY_IMG" "$MAX_IMAGES_PER_RESULT"
     - name: Package data files
       run: |
         # 设置LC_ALL为UTF-8以支持中文字符

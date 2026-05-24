@@ -29,3 +29,9 @@ TIME_RANGE_MAPPING = {
 
 # 当前时间范围
 CURRENT_TIME_RANGE = None
+
+# 是否启用图片下载
+ENABLE_TAVILY_IMG = True
+
+# 最大下载图片数量（每个搜索结果最多下载的图片数）
+MAX_IMAGES_PER_RESULT = 3
