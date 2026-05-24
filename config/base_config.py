@@ -71,6 +71,16 @@ else:
 # Whether to enable IP proxy
 ENABLE_IP_PROXY = False
 
+# ==================== Timestamp Filter Configuration ====================
+# Enable timestamp filtering (when platform API time range is not precise, filter by video timestamp)
+ENABLE_TIMESTAMP_FILTER = True
+
+# Time filter traversal multiplier (stop searching when reaching N times the target count)
+TIMESTAMP_FILTER_MULTIPLIER = 1.5
+
+# Original target time range (days), passed from run_crawler.py
+TARGET_TIME_RANGE_DAYS = 0
+
 # Number of proxy IP pools
 IP_PROXY_POOL_COUNT = 2
 
@@ -126,7 +136,7 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # Control the number of crawled videos/posts
-CRAWLER_MAX_NOTES_COUNT = 1
+CRAWLER_MAX_NOTES_COUNT = 10
 
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1

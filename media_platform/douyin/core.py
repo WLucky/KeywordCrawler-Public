@@ -22,6 +22,7 @@ import os
 import random
 from asyncio import Task
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
 
 from playwright.async_api import (
     BrowserContext,
@@ -44,6 +45,46 @@ from .exception import DataFetchError
 from .field import PublishTimeType
 from .help import parse_video_info_from_url, parse_creator_info_from_url
 from .login import DouYinLogin
+
+
+def is_video_in_time_range(aweme_info: Dict, target_days: int) -> bool:
+    """
+    判断视频是否在目标时间范围内
+    
+    Args:
+        aweme_info: 视频信息字典
+        target_days: 目标时间范围（天数）
+        
+    Returns:
+        True 如果视频在时间范围内，False 否则
+    """
+    if target_days <= 0:
+        return True
+    
+    # 获取视频发布时间戳（抖音API返回的是秒级时间戳）
+    create_time = aweme_info.get("create_time")
+    if not create_time:
+        create_time = aweme_info.get("aweme_info", {}).get("create_time")
+    
+    if not create_time:
+        utils.logger.warning(f"[is_video_in_time_range] 无法获取视频发布时间，默认保留")
+        return True
+    
+    try:
+        # 转换为datetime对象
+        video_time = datetime.fromtimestamp(int(create_time))
+        # 计算目标时间范围的起始时间
+        time_range_start = datetime.now() - timedelta(days=target_days)
+        
+        # 判断视频时间是否在目标范围内
+        is_in_range = video_time >= time_range_start
+        if not is_in_range:
+            utils.logger.debug(f"[is_video_in_time_range] 视频发布时间 {video_time} 超出目标范围 {time_range_start}，将被过滤")
+        
+        return is_in_range
+    except Exception as e:
+        utils.logger.error(f"[is_video_in_time_range] 时间解析失败: {e}")
+        return True
 
 
 class DouYinCrawler(AbstractCrawler):
@@ -119,13 +160,33 @@ class DouYinCrawler(AbstractCrawler):
         dy_limit_count = 10  # douyin limit page fixed value
         user_max_notes = config.CRAWLER_MAX_NOTES_COUNT  # 保存用户设置的抓取数量
         start_page = config.START_PAGE  # start page number
+        
+        # 获取时间过滤配置
+        enable_timestamp_filter = getattr(config, 'ENABLE_TIMESTAMP_FILTER', True)
+        target_time_range_days = getattr(config, 'TARGET_TIME_RANGE_DAYS', 0)
+        filter_multiplier = getattr(config, 'TIMESTAMP_FILTER_MULTIPLIER', 1.5)
+        
+        # 计算遍历上限（目标数量的N倍）
+        max_scan_count = int(user_max_notes * filter_multiplier)
+        
         for keyword in config.KEYWORDS.split(","):
             source_keyword_var.set(keyword)
             utils.logger.info(f"[DouYinCrawler.search] Current keyword: {keyword}")
-            aweme_list: List[str] = []
+            aweme_list: List[str] = []  # 最终符合时间范围的视频列表
+            scanned_count = 0  # 已扫描的视频数量（用于判断是否达到遍历上限）
             page = 0
             dy_search_id = ""
+            
+            # 输出时间过滤配置信息
+            if enable_timestamp_filter and target_time_range_days > 0:
+                utils.logger.info(f"[DouYinCrawler.search] 启用时间戳过滤，目标时间范围: {target_time_range_days}天，遍历上限: {max_scan_count}个视频")
+            
             while len(aweme_list) < user_max_notes:
+                # 检查是否达到遍历上限
+                if scanned_count >= max_scan_count:
+                    utils.logger.info(f"[DouYinCrawler.search] 已扫描 {scanned_count} 个视频，达到遍历上限 {max_scan_count}，停止搜索")
+                    break
+                    
                 if page < start_page:
                     utils.logger.info(f"[DouYinCrawler.search] Skip {page}")
                     page += 1
@@ -152,20 +213,36 @@ class DouYinCrawler(AbstractCrawler):
                 dy_search_id = posts_res.get("extra", {}).get("logid", "")
                 page_aweme_list = []
                 for post_item in posts_res.get("data"):
+                    # 检查是否达到遍历上限
+                    if scanned_count >= max_scan_count:
+                        utils.logger.info(f"[DouYinCrawler.search] 已扫描 {scanned_count} 个视频，达到遍历上限 {max_scan_count}，停止搜索")
+                        break
+                    
                     try:
                         aweme_info: Dict = (post_item.get("aweme_info") or post_item.get("aweme_mix_info", {}).get("mix_items")[0])
                     except TypeError:
                         continue
-                    aweme_id = aweme_info.get("aweme_id", "")
-                    aweme_list.append(aweme_id)
-                    page_aweme_list.append(aweme_id)
-                    await douyin_store.update_douyin_aweme(aweme_item=aweme_info)
-                    await self.get_aweme_media(aweme_item=aweme_info)
                     
-                    # 如果已达到用户设置的抓取数量，停止处理更多视频
-                    if len(aweme_list) >= user_max_notes:
-                        utils.logger.info(f"[DouYinCrawler.search] 已达到用户设置的抓取数量 {user_max_notes}，停止获取更多视频")
-                        break
+                    scanned_count += 1
+                    
+                    # 时间戳过滤
+                    should_include = True
+                    if enable_timestamp_filter and target_time_range_days > 0:
+                        should_include = is_video_in_time_range(aweme_info, target_time_range_days)
+                        if not should_include:
+                            utils.logger.debug(f"[DouYinCrawler.search] 视频 {aweme_info.get('aweme_id')} 时间戳不在目标范围内，已过滤")
+                    
+                    if should_include:
+                        aweme_id = aweme_info.get("aweme_id", "")
+                        aweme_list.append(aweme_id)
+                        page_aweme_list.append(aweme_id)
+                        await douyin_store.update_douyin_aweme(aweme_item=aweme_info)
+                        await self.get_aweme_media(aweme_item=aweme_info)
+                        
+                        # 如果已达到用户设置的抓取数量，停止处理更多视频
+                        if len(aweme_list) >= user_max_notes:
+                            utils.logger.info(f"[DouYinCrawler.search] 已达到用户设置的抓取数量 {user_max_notes}，停止获取更多视频")
+                            break
                 
                 # Batch get note comments for the current page
                 await self.batch_get_note_comments(page_aweme_list)
@@ -177,7 +254,8 @@ class DouYinCrawler(AbstractCrawler):
                 # Sleep after each page navigation
                 await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
                 utils.logger.info(f"[DouYinCrawler.search] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after page {page-1}")
-            utils.logger.info(f"[DouYinCrawler.search] keyword:{keyword}, aweme_list:{aweme_list}")
+            
+            utils.logger.info(f"[DouYinCrawler.search] keyword:{keyword}, 最终获取 {len(aweme_list)} 个视频（共扫描 {scanned_count} 个）")
 
     async def get_specified_awemes(self):
         """Get the information and comments of the specified post from URLs or IDs"""

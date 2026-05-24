@@ -62,24 +62,36 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(dy_config_file, 'r', encoding='utf-8') as f:
             dy_content = f.read()
         
-        # 将任意天数适配到抖音支持的最小范围
+        # 将任意天数适配到抖音支持的**更大**范围
         # 抖音支持: 0(不限), 1(一天内), 7(一周内), 180(半年内)
+        # 如果超过最大范围(180天)，则改为不限时间，然后通过时间戳过滤
         if time_type == 0:
             dy_time_type = 0
-        elif time_type < 7:
-            dy_time_type = 1
-        elif time_type < 180:
-            dy_time_type = 7
+        elif time_type <= 1:
+            dy_time_type = 1  # 1天内
+        elif time_type <= 7:
+            dy_time_type = 7  # 一周内
+        elif time_type <= 180:
+            dy_time_type = 180  # 半年内
         else:
-            dy_time_type = 180
+            # 超过最大支持范围，改为不限时间，通过时间戳过滤
+            dy_time_type = 0
         
         # 更新PUBLISH_TIME_TYPE
         dy_content = re.sub(r'PUBLISH_TIME_TYPE = \d+', f'PUBLISH_TIME_TYPE = {dy_time_type}', dy_content)
+        
+        # 更新TARGET_TIME_RANGE_DAYS（保存用户输入的原始时间范围，用于后续时间戳过滤）
+        dy_content = re.sub(r'TARGET_TIME_RANGE_DAYS = \d+', f'TARGET_TIME_RANGE_DAYS = {time_type}', dy_content)
         
         with open(dy_config_file, 'w', encoding='utf-8') as f:
             f.write(dy_content)
         
         print(f'已更新抖音时间类型为: {dy_time_type} (输入: {time_type}天)')
+        if time_type > 0 and dy_time_type != time_type:
+            if dy_time_type == 0:
+                print(f'提示: 抖音不支持{time_type}天的时间范围(超过最大支持180天)，将使用不限时间范围并通过时间戳过滤')
+            else:
+                print(f'提示: 抖音不支持{time_type}天的精确时间范围，将使用{dy_time_type}天范围并通过时间戳过滤')
     elif platform == 'bili':
         bili_config_file = 'config/bilibili_config.py'
         with open(bili_config_file, 'r', encoding='utf-8') as f:
@@ -108,18 +120,22 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(tavily_config_file, 'r', encoding='utf-8') as f:
             tavily_content = f.read()
         
-        # 将任意天数适配到 Tavily 支持的最小范围
+        # 将任意天数适配到 Tavily 支持的**更大**范围
         # Tavily 支持: None(不限), "day"(一天内), "week"(一周内), "month"(一个月内), "year"(一年内)
+        # 如果超过最大范围(365天/一年)，则改为不限时间，然后通过时间戳过滤
         if time_type == 0:
             tavily_time_range = None
-        elif time_type < 7:
-            tavily_time_range = "day"
-        elif time_type < 30:
-            tavily_time_range = "week"
-        elif time_type < 365:
-            tavily_time_range = "month"
+        elif time_type <= 1:
+            tavily_time_range = "day"  # 一天内
+        elif time_type <= 7:
+            tavily_time_range = "week"  # 一周内
+        elif time_type <= 30:
+            tavily_time_range = "month"  # 一个月内
+        elif time_type <= 365:
+            tavily_time_range = "year"  # 一年内
         else:
-            tavily_time_range = "year"
+            # 超过最大支持范围(一年)，改为不限时间，通过时间戳过滤
+            tavily_time_range = None
         
         # 更新CURRENT_TIME_RANGE
         if tavily_time_range is None:
@@ -127,6 +143,9 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         else:
             updated_value = f'"{tavily_time_range}"'
         tavily_content = re.sub(r'CURRENT_TIME_RANGE = .*', f'CURRENT_TIME_RANGE = {updated_value}', tavily_content)
+        
+        # 更新TARGET_TIME_RANGE_DAYS（保存用户输入的原始时间范围，用于后续时间戳过滤）
+        tavily_content = re.sub(r'TARGET_TIME_RANGE_DAYS = \d+', f'TARGET_TIME_RANGE_DAYS = {time_type}', tavily_content)
         
         # 更新ENABLE_TAVILY_IMG
         tavily_content = re.sub(r'ENABLE_TAVILY_IMG = \w+', f'ENABLE_TAVILY_IMG = {enable_tavily_img}', tavily_content)
@@ -137,7 +156,9 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(tavily_config_file, 'w', encoding='utf-8') as f:
             f.write(tavily_content)
         
-        print(f'已更新Tavily时间范围为: {tavily_time_range} (输入: {time_type}天)')
+        print(f'已更新Tavily时间范围为: {tavily_time_range}')
+        if time_type > 0:
+            print(f'提示: Tavily将通过时间戳过滤实现{time_type}天的时间范围控制')
         print(f'已更新Tavily图片下载为: {enable_tavily_img}')
         print(f'已更新Tavily最大图片数量为: {max_images_per_result}')
     
@@ -415,9 +436,6 @@ def add_images_to_markdown(markdown_lines, keywords):
             
             if url:
                 markdown_lines.append(f"- **原始URL**: {url}")
-            
-            if description:
-                markdown_lines.append(f"- **描述**: {description}")
             
             if download_time:
                 markdown_lines.append(f"- **下载时间**: {download_time}")

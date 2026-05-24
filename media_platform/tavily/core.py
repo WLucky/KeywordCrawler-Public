@@ -13,13 +13,62 @@ import os
 import pathlib
 import aiofiles
 import httpx
+from datetime import datetime, timedelta
 
 from base.base_crawler import AbstractCrawler
 from config import (
     PLATFORM, KEYWORDS, TAVILY_API_KEY, SEARCH_DEPTH, MAX_RESULTS,
-    CHUNKS_PER_SOURCE, INCLUDE_DOMAINS, CURRENT_TIME_RANGE
+    CHUNKS_PER_SOURCE, INCLUDE_DOMAINS, CURRENT_TIME_RANGE,
+    ENABLE_TIMESTAMP_FILTER, TARGET_TIME_RANGE_DAYS, TIMESTAMP_FILTER_MULTIPLIER
 )
 from tools.async_file_writer import AsyncFileWriter
+from tools import utils
+
+
+def is_result_in_time_range(published_date: str, target_days: int) -> bool:
+    """
+    判断搜索结果是否在目标时间范围内
+    
+    Args:
+        published_date: 发布日期字符串（Tavily返回的格式可能是相对时间或具体日期）
+        target_days: 目标时间范围（天数）
+        
+    Returns:
+        True 如果结果在时间范围内，False 否则
+    """
+    if target_days <= 0 or not published_date:
+        return True
+    
+    try:
+        # 尝试解析不同格式的日期
+        # 格式1: "2024-01-15"
+        try:
+            result_time = datetime.strptime(published_date, "%Y-%m-%d")
+        except ValueError:
+            # 格式2: "2024-01-15T10:30:00"
+            try:
+                result_time = datetime.strptime(published_date, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                # 格式3: "2024-01-15 10:30:00"
+                try:
+                    result_time = datetime.strptime(published_date, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    # 如果无法解析日期格式，默认保留
+                    utils.logger.warning(f"[is_result_in_time_range] 无法解析日期格式: {published_date}，默认保留")
+                    return True
+        
+        # 计算目标时间范围的起始时间
+        time_range_start = datetime.now() - timedelta(days=target_days)
+        
+        # 判断结果时间是否在目标范围内
+        is_in_range = result_time >= time_range_start
+        if not is_in_range:
+            utils.logger.debug(f"[is_result_in_time_range] 结果发布时间 {result_time} 超出目标范围 {time_range_start}，将被过滤")
+        
+        return is_in_range
+    except Exception as e:
+        utils.logger.error(f"[is_result_in_time_range] 时间解析失败: {e}")
+        return True
 
 
 class TavilyCrawler(AbstractCrawler):
@@ -46,6 +95,12 @@ class TavilyCrawler(AbstractCrawler):
         print(f"[Tavily] 时间范围: {self.time_range}")
         print(f"[Tavily] 包含域名: {self.include_domains}")
         
+        # 如果启用时间戳过滤且有目标时间范围，需要增大搜索结果数量
+        search_max_results = self.max_results
+        if ENABLE_TIMESTAMP_FILTER and TARGET_TIME_RANGE_DAYS > 0:
+            search_max_results = int(self.max_results * TIMESTAMP_FILTER_MULTIPLIER)
+            print(f"[Tavily] 启用时间戳过滤，目标时间范围: {TARGET_TIME_RANGE_DAYS}天，搜索结果上限调整为: {search_max_results}")
+        
         try:
             from tavily import TavilyClient
             
@@ -54,7 +109,7 @@ class TavilyCrawler(AbstractCrawler):
             search_params = {
                 "query": self.keywords,
                 "search_depth": self.search_depth,
-                "max_results": self.max_results,
+                "max_results": search_max_results,
                 "chunks_per_source": self.chunks_per_source,
                 "include_domains": self.include_domains,
                 "include_images": True  # 必须显式启用图片搜索
@@ -65,9 +120,9 @@ class TavilyCrawler(AbstractCrawler):
             
             response = client.search(**search_params)
             
-            await self._process_search_results(response)
+            filtered_count = await self._process_search_results(response)
             
-            print(f"[Tavily] 搜索完成，共获取 {len(response.get('results', []))} 个结果")
+            print(f"[Tavily] 搜索完成，共获取 {len(response.get('results', []))} 个结果，过滤后保留 {filtered_count} 个")
             
             # 动态读取配置（确保使用最新修改的配置值）
             import config
@@ -89,11 +144,30 @@ class TavilyCrawler(AbstractCrawler):
         except Exception as e:
             print(f"[Tavily] 搜索过程中出错: {str(e)}")
     
-    async def _process_search_results(self, response: Dict[str, Any]):
-        """处理搜索结果"""
+    async def _process_search_results(self, response: Dict[str, Any]) -> int:
+        """处理搜索结果，应用时间戳过滤"""
         results = response.get('results', [])
         
+        filtered_count = 0  # 符合时间范围的结果数量
+        saved_count = 0  # 已保存的结果数量
+        
         for i, result in enumerate(results):
+            # 检查是否已达到目标数量
+            if saved_count >= self.max_results:
+                print(f"[Tavily] 已达到目标数量 {self.max_results}，停止处理")
+                break
+            
+            # 时间戳过滤
+            published_date = result.get("published_date", "")
+            should_include = True
+            if ENABLE_TIMESTAMP_FILTER and TARGET_TIME_RANGE_DAYS > 0:
+                should_include = is_result_in_time_range(published_date, TARGET_TIME_RANGE_DAYS)
+                if not should_include:
+                    print(f"[Tavily] 结果 '{result.get('title', '')[:30]}...' 发布时间 {published_date} 超出目标范围，已过滤")
+                    continue
+            
+            filtered_count += 1
+            
             item = {
                 "platform": self.platform,
                 "keyword": self.keywords,
@@ -101,7 +175,7 @@ class TavilyCrawler(AbstractCrawler):
                 "url": result.get("url", ""),
                 "content": result.get("content", ""),
                 "score": result.get("score", 0),
-                "published_date": result.get("published_date", ""),
+                "published_date": published_date,
                 "images": result.get("images", []),
                 "chunks": result.get("chunks", []),
                 "id": f"tavily_{i+1}",
@@ -124,6 +198,10 @@ class TavilyCrawler(AbstractCrawler):
                 await self.file_writer.write_single_item_to_json(item, "contents")
             else:
                 await self.file_writer.write_to_jsonl(item, "contents")
+            
+            saved_count += 1
+        
+        return filtered_count
     
     async def _download_images(self, response: Dict[str, Any], max_images_per_result: int = 3):
         """下载搜索结果中的图片"""

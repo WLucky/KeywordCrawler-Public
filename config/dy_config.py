@@ -19,7 +19,10 @@
 
 # Douyin platform configuration
 
-PUBLISH_TIME_TYPE = 0
+PUBLISH_TIME_TYPE = 7
+
+# Target time range in days specified by user (for timestamp filtering)
+TARGET_TIME_RANGE_DAYS = 5
 
 # Specify DY video URL list (supports multiple formats)
 # Supported formats:

@@ -23,12 +23,32 @@
 # @Desc    :
 
 from typing import List
+from datetime import datetime
 
 import config
 from var import source_keyword_var
 
 from ._store_impl import *
 from .bilibilli_store_media import *
+
+
+def _timestamp_to_datetime(timestamp: int) -> str:
+    """
+    将秒级时间戳转换为可读的日期时间字符串
+    
+    Args:
+        timestamp: 秒级时间戳
+        
+    Returns:
+        格式化的日期时间字符串，如 "2024-01-15 10:30:00"
+    """
+    if not timestamp:
+        return ""
+    try:
+        return datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        utils.logger.error(f"[_timestamp_to_datetime] 时间戳转换失败: {e}")
+        return str(timestamp)
 
 
 class BiliStoreFactory:
@@ -65,7 +85,7 @@ async def update_bilibili_video(video_item: Dict):
         "video_type": "video",
         "title": video_item_view.get("title", "")[:500],
         "desc": video_item_view.get("desc", "")[:500],
-        "create_time": video_item_view.get("pubdate"),
+        "create_time": _timestamp_to_datetime(video_item_view.get("pubdate")),
         "user_id": str(video_user_info.get("mid")),
         "nickname": video_user_info.get("name"),
         "avatar": video_user_info.get("face", ""),
@@ -103,7 +123,7 @@ async def update_bilibili_video_comment(video_id: str, comment_item: Dict):
     save_comment_item = {
         "comment_id": comment_id,
         "parent_comment_id": parent_comment_id,
-        "create_time": comment_item.get("ctime"),
+        "create_time": _timestamp_to_datetime(comment_item.get("ctime")),
         "video_id": str(video_id),
         "content": content.get("message"),
         "user_id": user_info.get("mid"),

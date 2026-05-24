@@ -22,12 +22,32 @@
 # @Time    : 2024/1/14 18:46
 # @Desc    :
 from typing import List
+from datetime import datetime
 
 import config
 from var import source_keyword_var
 
 from ._store_impl import *
 from .douyin_store_media import *
+
+
+def _timestamp_to_datetime(timestamp: int) -> str:
+    """
+    将秒级时间戳转换为可读的日期时间字符串
+    
+    Args:
+        timestamp: 秒级时间戳
+        
+    Returns:
+        格式化的日期时间字符串，如 "2024-01-15 10:30:00"
+    """
+    if not timestamp:
+        return ""
+    try:
+        return datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        utils.logger.error(f"[_timestamp_to_datetime] 时间戳转换失败: {e}")
+        return str(timestamp)
 
 
 class DouyinStoreFactory:
@@ -163,7 +183,7 @@ async def update_douyin_aweme(aweme_item: Dict):
         "video_type": str(aweme_item.get("aweme_type")),
         "title": aweme_item.get("desc", ""),
         "desc": aweme_item.get("desc", ""),
-        "create_time": aweme_item.get("create_time"),
+        "create_time": _timestamp_to_datetime(aweme_item.get("create_time")),
         "user_id": user_info.get("uid"),
         "nickname": user_info.get("nickname"),
         "avatar": user_info.get("avatar_thumb", {}).get("url_list", [""])[0],
@@ -199,7 +219,7 @@ async def update_dy_aweme_comment(aweme_id: str, comment_item: Dict):
     avatar_info = (user_info.get("avatar_medium", {}) or user_info.get("avatar_300x300", {}) or user_info.get("avatar_168x168", {}) or user_info.get("avatar_thumb", {}) or {})
     save_comment_item = {
         "comment_id": comment_id,
-        "create_time": comment_item.get("create_time"),
+        "create_time": _timestamp_to_datetime(comment_item.get("create_time")),
         "video_id": aweme_id,
         "content": comment_item.get("text"),
         "user_id": user_info.get("uid"),
