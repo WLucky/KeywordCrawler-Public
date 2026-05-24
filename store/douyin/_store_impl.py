@@ -58,7 +58,7 @@ class DouyinCsvStoreImplement(AbstractStore):
         """
         await self.file_writer.write_to_csv(
             item=content_item,
-            item_type="contents"
+            item_type="videos"
         )
 
     async def store_comment(self, comment_item: Dict):
@@ -171,7 +171,7 @@ class DouyinJsonStoreImplement(AbstractStore):
         """
         await self.file_writer.write_single_item_to_json(
             item=content_item,
-            item_type="contents"
+            item_type="videos"
         )
 
     async def store_comment(self, comment_item: Dict):
@@ -214,7 +214,7 @@ class DouyinJsonlStoreImplement(AbstractStore):
     async def store_content(self, content_item: Dict):
         await self.file_writer.write_to_jsonl(
             item=content_item,
-            item_type="contents"
+            item_type="videos"
         )
 
     async def store_comment(self, comment_item: Dict):

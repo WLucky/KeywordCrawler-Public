@@ -275,7 +275,8 @@ class BilibiliClient(AbstractApiClient, ProxyRefreshMixin):
         is_end = False
         next_page = 0
         max_retries = 3
-        while not is_end and len(result) < max_count:
+        total_fetched = 0
+        while not is_end and total_fetched < max_count:
             comments_res = None
             for attempt in range(max_retries):
                 try:
@@ -311,16 +312,22 @@ class BilibiliClient(AbstractApiClient, ProxyRefreshMixin):
             if not isinstance(is_end, bool):
                 utils.logger.warning(f"[BilibiliClient.get_video_all_comments] 'is_end' is not a boolean for video_id: {video_id}. Assuming end of comments.")
                 is_end = True
-            if is_fetch_sub_comments:
-                for comment in comment_list:
+            if total_fetched + len(comment_list) > max_count:
+                comment_list = comment_list[:max_count - total_fetched]
+            if is_fetch_sub_comments and comment_list:
+                remaining = max_count - total_fetched - len(comment_list)
+                comments_with_sub = [c for c in comment_list if c.get("rcount", 0) > 0]
+                for comment in comments_with_sub:
+                    if remaining <= 0:
+                        break
                     comment_id = comment['rpid']
-                    if (comment.get("rcount", 0) > 0):
-                        {await self.get_video_all_level_two_comments(video_id, comment_id, CommentOrderType.DEFAULT, 10, crawl_interval, callback)}
-            if len(result) + len(comment_list) > max_count:
-                comment_list = comment_list[:max_count - len(result)]
-            if callback:  # If there is a callback function, execute it
+                    sub_max = max(1, remaining // max(1, len(comments_with_sub)))
+                    await self.get_video_all_level_two_comments(video_id, comment_id, CommentOrderType.DEFAULT, 10, crawl_interval, callback, max_count=sub_max)
+                    remaining -= sub_max
+            if callback and comment_list:
                 await callback(video_id, comment_list)
             await asyncio.sleep(crawl_interval)
+            total_fetched += len(comment_list)
             if not is_fetch_sub_comments:
                 result.extend(comment_list)
                 continue
@@ -334,6 +341,7 @@ class BilibiliClient(AbstractApiClient, ProxyRefreshMixin):
         ps: int = 10,
         crawl_interval: float = 1.0,
         callback: Optional[Callable] = None,
+        max_count: int = 10,
     ) -> Dict:
         """
         get video all level two comments for a level one comment
@@ -343,16 +351,23 @@ class BilibiliClient(AbstractApiClient, ProxyRefreshMixin):
         :param ps: Number of comments per page
         :param crawl_interval:
         :param callback:
+        :param max_count: Maximum number of level 2 comments to crawl
         :return:
         """
 
         pn = 1
-        while True:
+        total_fetched = 0
+        while total_fetched < max_count:
             result = await self.get_video_level_two_comments(video_id, level_one_comment_id, pn, ps, order_mode)
             comment_list: List[Dict] = result.get("replies", [])
-            if callback:  # If there is a callback function, execute it
+            if not comment_list:
+                break
+            if total_fetched + len(comment_list) > max_count:
+                comment_list = comment_list[:max_count - total_fetched]
+            if callback and comment_list:
                 await callback(video_id, comment_list)
             await asyncio.sleep(crawl_interval)
+            total_fetched += len(comment_list)
             if (int(result["page"]["count"]) <= pn * ps):
                 break
 

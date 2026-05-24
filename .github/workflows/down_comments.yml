@@ -24,12 +24,12 @@ on:
       keywords:
         description: '请填写搜索关键词'
         required: true
-        default: '北京车展'
+        default: '比亚迪'
       time_type:
         description: '输入时间范围（天数），0表示不限'
         required: true
         type: number
-        default: 1
+        default: 0
       max_notes:
         description: '爬取视频数量'
         required: true
@@ -39,7 +39,7 @@ on:
         description: '单视频评论数量'
         required: true
         type: number
-        default: 20
+        default: 8000
       enable_sub_comments:
         description: '是否启用二级评论'
         required: true

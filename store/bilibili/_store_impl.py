@@ -80,17 +80,11 @@ class BiliCsvStoreImplement(AbstractStore):
 
     async def store_creator(self, creator: Dict):
         """
-        creator CSV storage implementation
+        Bilibili creator CSV storage - not supported, kept for abstract class compatibility
         Args:
-            creator:
-
-        Returns:
-
+            creator: creator item dict
         """
-        await self.file_writer.write_to_csv(
-            item=creator,
-            item_type="creators"
-        )
+        pass
 
     async def store_contact(self, contact_item: Dict):
         """
@@ -178,34 +172,6 @@ class BiliDbStoreImplement(AbstractStore):
                     setattr(comment_detail, key, value)
             await session.commit()
 
-    async def store_creator(self, creator: Dict):
-        """
-        Bilibili creator DB storage implementation
-        Args:
-            creator: creator item dict
-        """
-        creator_id = int(creator.get("user_id"))
-        creator["user_id"] = creator_id
-        creator["total_fans"] = int(creator.get("total_fans", 0) or 0)
-        creator["total_liked"] = int(creator.get("total_liked", 0) or 0)
-        creator["user_rank"] = int(creator.get("user_rank", 0) or 0)
-        creator["is_official"] = int(creator.get("is_official", 0) or 0)
-
-        async with get_session() as session:
-            result = await session.execute(select(BilibiliUpInfo).where(BilibiliUpInfo.user_id == creator_id))
-            creator_detail = result.scalar_one_or_none()
-
-            if not creator_detail:
-                creator["add_ts"] = utils.get_current_timestamp()
-                creator["last_modify_ts"] = utils.get_current_timestamp()
-                new_creator = BilibiliUpInfo(**creator)
-                session.add(new_creator)
-            else:
-                creator["last_modify_ts"] = utils.get_current_timestamp()
-                for key, value in creator.items():
-                    setattr(creator_detail, key, value)
-            await session.commit()
-
     async def store_contact(self, contact_item: Dict):
         """
         Bilibili contact DB storage implementation
@@ -277,7 +243,7 @@ class BiliJsonStoreImplement(AbstractStore):
         """
         await self.file_writer.write_single_item_to_json(
             item=content_item,
-            item_type="contents"
+            item_type="videos"
         )
 
     async def store_comment(self, comment_item: Dict):
@@ -292,20 +258,6 @@ class BiliJsonStoreImplement(AbstractStore):
         await self.file_writer.write_single_item_to_json(
             item=comment_item,
             item_type="comments"
-        )
-
-    async def store_creator(self, creator: Dict):
-        """
-        creator JSON storage implementation
-        Args:
-            creator:
-
-        Returns:
-
-        """
-        await self.file_writer.write_single_item_to_json(
-            item=creator,
-            item_type="creators"
         )
 
     async def store_contact(self, contact_item: Dict):
@@ -355,12 +307,6 @@ class BiliJsonlStoreImplement(AbstractStore):
         await self.file_writer.write_to_jsonl(
             item=comment_item,
             item_type="comments"
-        )
-
-    async def store_creator(self, creator: Dict):
-        await self.file_writer.write_to_jsonl(
-            item=creator,
-            item_type="creators"
         )
 
     async def store_contact(self, contact_item: Dict):
@@ -419,23 +365,6 @@ class BiliMongoStoreImplement(AbstractStore):
             data=comment_item
         )
         utils.logger.info(f"[BiliMongoStoreImplement.store_comment] Saved comment {comment_id} to MongoDB")
-
-    async def store_creator(self, creator_item: Dict):
-        """
-        Store UP master information to MongoDB
-        Args:
-            creator_item: UP master data
-        """
-        user_id = creator_item.get("user_id")
-        if not user_id:
-            return
-
-        await self.mongo_store.save_or_update(
-            collection_suffix="creators",
-            query={"user_id": user_id},
-            data=creator_item
-        )
-        utils.logger.info(f"[BiliMongoStoreImplement.store_creator] Saved creator {user_id} to MongoDB")
 
 
 class BiliExcelStoreImplement:

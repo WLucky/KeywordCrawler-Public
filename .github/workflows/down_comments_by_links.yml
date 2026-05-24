@@ -14,7 +14,7 @@ on:
         description: '单视频评论数量'
         required: true
         type: number
-        default: 20
+        default: 8000
       enable_sub_comments:
         description: '是否启用二级评论'
         required: true

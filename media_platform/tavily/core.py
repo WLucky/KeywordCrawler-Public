@@ -99,17 +99,17 @@ class TavilyCrawler(AbstractCrawler):
                 "sub_comments": []  # Tavily API 不返回子评论
             }
             
-            # 保存数据
+            # 保存数据（Tavily 仅输出内容文件）
             import config
             if config.SAVE_DATA_OPTION == "csv":
-                await self.file_writer.write_to_csv(item, "content")
+                await self.file_writer.write_to_csv(item, "contents")
             elif config.SAVE_DATA_OPTION == "jsonl":
-                await self.file_writer.write_to_jsonl(item, "content")
+                await self.file_writer.write_to_jsonl(item, "contents")
             elif config.SAVE_DATA_OPTION == "json":
-                await self.file_writer.write_single_item_to_json(item, "content")
+                await self.file_writer.write_single_item_to_json(item, "contents")
             else:
                 # 默认使用 jsonl
-                await self.file_writer.write_to_jsonl(item, "content")
+                await self.file_writer.write_to_jsonl(item, "contents")
     
     async def search(self):
         """搜索关键词"""

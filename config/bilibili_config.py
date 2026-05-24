@@ -43,11 +43,11 @@ BILI_CREATOR_ID_LIST = [
 ]
 
 # Specify time range
-START_DAY = "2026-05-12"
-END_DAY = "2026-05-13"
+START_DAY = "2016-05-26"
+END_DAY = "2026-05-24"
 
 # Search mode
-BILI_SEARCH_MODE = "all_in_time_range"
+BILI_SEARCH_MODE = "normal"
 
 # Video definition (qn) configuration, common values:
 # 16=360p, 32=480p, 64=720p, 80=1080p, 112=1080p high bit rate, 116=1080p60, 120=4K

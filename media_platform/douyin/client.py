@@ -257,24 +257,28 @@ class DouYinClient(AbstractApiClient, ProxyRefreshMixin):
         result = []
         comments_has_more = 1
         comments_cursor = 0
-        while comments_has_more and len(result) < max_count:
+        total_fetched = 0
+        while comments_has_more and total_fetched < max_count:
             comments_res = await self.get_aweme_comments(aweme_id, comments_cursor)
             comments_has_more = comments_res.get("has_more", 0)
             comments_cursor = comments_res.get("cursor", 0)
             comments = comments_res.get("comments", [])
             if not comments:
                 continue
-            if len(result) + len(comments) > max_count:
-                comments = comments[:max_count - len(result)]
+            if total_fetched + len(comments) > max_count:
+                comments = comments[:max_count - total_fetched]
             result.extend(comments)
-            if callback:  # If there is a callback function, execute the callback function
+            if callback and comments:
                 await callback(aweme_id, comments)
 
             await asyncio.sleep(crawl_interval)
+            total_fetched += len(comments)
             if not is_fetch_sub_comments:
                 continue
-            # Get secondary reviews
+            remaining = max_count - total_fetched
             for comment in comments:
+                if remaining <= 0:
+                    break
                 reply_comment_total = comment.get("reply_comment_total")
 
                 if reply_comment_total > 0:
@@ -282,7 +286,7 @@ class DouYinClient(AbstractApiClient, ProxyRefreshMixin):
                     sub_comments_has_more = 1
                     sub_comments_cursor = 0
 
-                    while sub_comments_has_more:
+                    while sub_comments_has_more and remaining > 0:
                         sub_comments_res = await self.get_sub_comments(aweme_id, comment_id, sub_comments_cursor)
                         sub_comments_has_more = sub_comments_res.get("has_more", 0)
                         sub_comments_cursor = sub_comments_res.get("cursor", 0)
@@ -290,10 +294,14 @@ class DouYinClient(AbstractApiClient, ProxyRefreshMixin):
 
                         if not sub_comments:
                             continue
+                        if len(sub_comments) > remaining:
+                            sub_comments = sub_comments[:remaining]
                         result.extend(sub_comments)
-                        if callback:  # If there is a callback function, execute the callback function
+                        if callback and sub_comments:
                             await callback(aweme_id, sub_comments)
                         await asyncio.sleep(crawl_interval)
+                        total_fetched += len(sub_comments)
+                        remaining -= len(sub_comments)
         return result
 
     async def get_user_info(self, sec_user_id: str):

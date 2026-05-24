@@ -214,8 +214,10 @@ class BilibiliCrawler(AbstractCrawler):
 
                 semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
                 task_list = []
+                remaining = user_max_notes - total_crawled
+                video_list_to_fetch = video_list[:remaining]
                 try:
-                    task_list = [self.get_video_info_task(aid=video_item.get("aid"), bvid="", semaphore=semaphore) for video_item in video_list]
+                    task_list = [self.get_video_info_task(aid=video_item.get("aid"), bvid="", semaphore=semaphore) for video_item in video_list_to_fetch]
                 except Exception as e:
                     utils.logger.warning(f"[BilibiliCrawler.search_by_keywords] error in the task list. The video for this page will not be included. {e}")
                 video_items = await asyncio.gather(*task_list)
@@ -223,23 +225,24 @@ class BilibiliCrawler(AbstractCrawler):
                     if video_item and total_crawled < user_max_notes:
                         video_id_list.append(video_item.get("View").get("aid"))
                         await bilibili_store.update_bilibili_video(video_item)
-                        await bilibili_store.update_up_info(video_item)
                         await self.get_bilibili_video(video_item, semaphore)
                         total_crawled += 1
                         utils.logger.info(f"[BilibiliCrawler.search_by_keywords] 已抓取 {total_crawled}/{user_max_notes} 个视频")
-                
+
+                # 每页抓取完成后立即获取评论
+                if video_id_list:
+                    await self.batch_get_video_comments(video_id_list)
+
                 # 如果已达到用户设置的抓取数量，停止获取更多页面
                 if total_crawled >= user_max_notes:
                     utils.logger.info(f"[BilibiliCrawler.search_by_keywords] 已达到用户设置的抓取数量 {user_max_notes}，停止获取更多视频")
                     break
-                
+
                 page += 1
 
                 # Sleep after page navigation
                 await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
                 utils.logger.info(f"[BilibiliCrawler.search_by_keywords] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after page {page-1}")
-
-                await self.batch_get_video_comments(video_id_list)
 
     async def search_by_keywords_in_time_range(self, daily_limit: bool):
         """
@@ -295,8 +298,13 @@ class BilibiliCrawler(AbstractCrawler):
                             utils.logger.info(f"[BilibiliCrawler.search] No more videos for '{keyword}' on {day.ctime()}, moving to next day.")
                             break
 
+                        remaining = min(
+                            config.CRAWLER_MAX_NOTES_COUNT - total_notes_crawled_for_keyword,
+                            config.MAX_NOTES_PER_DAY - notes_count_this_day
+                        )
+                        video_list_to_fetch = video_list[:remaining]
                         semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
-                        task_list = [self.get_video_info_task(aid=video_item.get("aid"), bvid="", semaphore=semaphore) for video_item in video_list]
+                        task_list = [self.get_video_info_task(aid=video_item.get("aid"), bvid="", semaphore=semaphore) for video_item in video_list_to_fetch]
                         video_items = await asyncio.gather(*task_list)
 
                         for video_item in video_items:
@@ -311,7 +319,6 @@ class BilibiliCrawler(AbstractCrawler):
                                 total_notes_crawled_for_keyword += 1
                                 video_id_list.append(video_item.get("View").get("aid"))
                                 await bilibili_store.update_bilibili_video(video_item)
-                                await bilibili_store.update_up_info(video_item)
                                 await self.get_bilibili_video(video_item, semaphore)
 
                         page += 1
@@ -416,7 +423,6 @@ class BilibiliCrawler(AbstractCrawler):
                 if video_aid:
                     video_aids_list.append(video_aid)
                 await bilibili_store.update_bilibili_video(video_detail)
-                await bilibili_store.update_up_info(video_detail)
                 await self.get_bilibili_video(video_detail, semaphore)
         await self.batch_get_video_comments(video_aids_list)
 

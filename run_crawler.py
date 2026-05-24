@@ -81,25 +81,24 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         with open(bili_config_file, 'r', encoding='utf-8') as f:
             bili_content = f.read()
         
-        # 根据时间范围更新START_DAY和END_DAY
-        import datetime
-        today = datetime.date.today()
-        end_day = today.strftime('%Y-%m-%d')
-        
-        # 根据time_type计算start_day
-        if time_type == 0:  # 不限（从10年前到现在）
-            start_day = (today - datetime.timedelta(days=3650)).strftime('%Y-%m-%d')  # 10年前
-        else:  # 直接使用time_type作为天数
+        # 根据time_type更新BILI_SEARCH_MODE
+        # time_type == 0 表示不限时间，使用 normal 模式（search_by_keywords方法传递pubtime_begin_s=0, pubtime_end_s=0）
+        # time_type > 0 表示在指定时间范围内搜索，使用 all_in_time_range 或 daily_limit_in_time_range 模式
+        if time_type == 0:
+            bili_content = re.sub(r'BILI_SEARCH_MODE = ".*"', 'BILI_SEARCH_MODE = "normal"', bili_content)
+            print(f'已更新B站搜索模式为: normal (不限时间)')
+        else:
+            import datetime
+            today = datetime.date.today()
+            end_day = today.strftime('%Y-%m-%d')
             start_day = (today - datetime.timedelta(days=time_type)).strftime('%Y-%m-%d')
-        
-        # 更新START_DAY和END_DAY
-        bili_content = re.sub(r'START_DAY = ".*"', f'START_DAY = "{start_day}"', bili_content)
-        bili_content = re.sub(r'END_DAY = ".*"', f'END_DAY = "{end_day}"', bili_content)
+            bili_content = re.sub(r'BILI_SEARCH_MODE = ".*"', 'BILI_SEARCH_MODE = "all_in_time_range"', bili_content)
+            bili_content = re.sub(r'START_DAY = ".*"', f'START_DAY = "{start_day}"', bili_content)
+            bili_content = re.sub(r'END_DAY = ".*"', f'END_DAY = "{end_day}"', bili_content)
+            print(f'已更新B站时间范围为: {start_day} 至 {end_day}')
         
         with open(bili_config_file, 'w', encoding='utf-8') as f:
             f.write(bili_content)
-        
-        print(f'已更新B站时间范围为: {start_day} 至 {end_day}')
     elif platform == 'tavily':
         tavily_config_file = 'config/tavily_config.py'
         with open(tavily_config_file, 'r', encoding='utf-8') as f:
@@ -240,8 +239,11 @@ def generate_video_download_markdown(platforms, keywords):
         if csv_dir.exists():
             for ext in ['csv']:
                 content_files.extend(list(csv_dir.glob(f'*{platform}*contents*.{ext}')))
+                content_files.extend(list(csv_dir.glob(f'*{platform}*video*.{ext}')))
+                content_files.extend(list(csv_dir.glob(f'*{platform}*content*.{ext}')))
                 content_files.extend(list(csv_dir.glob(f'*{platform_name}*contents*.{ext}')))
-                # 也搜索完整平台名称
+                content_files.extend(list(csv_dir.glob(f'*{platform_name}*video*.{ext}')))
+                content_files.extend(list(csv_dir.glob(f'*{platform_name}*content*.{ext}')))
                 platform_full_names = {
                     'dy': 'douyin',
                     'bili': 'bilibili',
@@ -251,6 +253,8 @@ def generate_video_download_markdown(platforms, keywords):
                 }
                 if platform in platform_full_names:
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*contents*.{ext}')))
+                    content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*video*.{ext}')))
+                    content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*content*.{ext}')))
         
         # 搜索路径：data/{platform}/ 目录
         platform_dir = data_dir / platform
@@ -306,19 +310,32 @@ def generate_video_download_markdown(platforms, keywords):
                 print(f"读取文件 {content_file} 时出错: {str(e)}")
         
         print(f"从文件中提取到 {len(video_links)} 个视频链接")
-        
-        # 去重并添加到markdown
-        seen_urls = set()
-        for idx, (title, url) in enumerate(video_links, 1):
-            if url not in seen_urls:
-                seen_urls.add(url)
-                # 限制标题长度
+
+        seen_download_urls = set()
+        seen_original_urls = set()
+        for idx, (title, original_url, download_url) in enumerate(video_links, 1):
+            download_display = ""
+            if download_url and download_url not in seen_download_urls:
+                seen_download_urls.add(download_url)
+                download_display = f" | [下载链接]({download_url})"
+
+            original_display = ""
+            if original_url and original_url not in seen_original_urls:
+                seen_original_urls.add(original_url)
                 display_title = title[:50] + '...' if len(title) > 50 else title
-                markdown_lines.append(f"{idx}. [{display_title}]({url})")
-        
+                original_display = f"[{display_title}]({original_url})"
+
+            if original_display or download_display:
+                if original_display and download_display:
+                    markdown_lines.append(f"{idx}. {original_display}{download_display}")
+                elif original_display:
+                    markdown_lines.append(f"{idx}. {original_display}")
+                elif download_display:
+                    markdown_lines.append(f"{idx}. [下载链接]({download_url})")
+
         if not video_links:
-            markdown_lines.append(f"- 暂无视频下载链接")
-        
+            markdown_lines.append(f"- 暂无视频链接")
+
         markdown_lines.append(f"")
     
     # 写入markdown文件
@@ -333,26 +350,16 @@ def generate_video_download_markdown(platforms, keywords):
 
 def extract_video_links(item, video_links, platform):
     """
-    从内容项中提取视频下载链接
+    从内容项中提取视频原链接和下载链接
 
     Args:
         item: 内容项字典
-        video_links: 视频链接列表（用于追加）
+        video_links: 视频链接列表（用于追加），每个元素是 (title, original_url, download_url) 元组
         platform: 平台名称
     """
-    url = None
     title = None
-
-    # 根据不同平台和字段名提取链接
-    url_fields = [
-        'video_download_url',
-        'video_url',
-        'aweme_url',
-        'video_play_url',
-        'note_url',
-        'content_url',
-        'download_url'
-    ]
+    original_url = None
+    download_url = None
 
     title_fields = [
         'title',
@@ -363,20 +370,39 @@ def extract_video_links(item, video_links, platform):
         'content_id'
     ]
 
-    for field in url_fields:
-        if field in item and item[field]:
-            url = item[field]
-            break
-
     for field in title_fields:
         if field in item and item[field]:
             title = str(item[field])
             break
 
-    if url:
+    download_url_fields = [
+        'video_download_url',
+        'download_url'
+    ]
+
+    for field in download_url_fields:
+        if field in item and item[field]:
+            download_url = item[field]
+            break
+
+    original_url_fields = [
+        'url',
+        'video_url',
+        'aweme_url',
+        'share_url',
+        'note_url',
+        'content_url'
+    ]
+
+    for field in original_url_fields:
+        if field in item and item[field]:
+            original_url = item[field]
+            break
+
+    if original_url or download_url:
         if not title:
             title = f"{get_platform_name(platform)}视频"
-        video_links.append((title, url))
+        video_links.append((title, original_url, download_url))
 
 
 def get_platform_name(platform):
