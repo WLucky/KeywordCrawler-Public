@@ -49,7 +49,12 @@ on:
         description: 'Tavily图片下载'
         required: true
         type: boolean
-        default: false
+        default: true
+      enable_dy_video_download:
+        description: '抖音视频下载'
+        required: true
+        type: boolean
+        default: true
       max_images_per_result:
         description: '每个搜索结果最多下载的图片数'
         required: true
@@ -105,8 +110,9 @@ jobs:
         MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
         ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
         ENABLE_TAVILY_IMG="${{ github.event.inputs.enable_tavily_img }}"
+        ENABLE_DY_VIDEO_DOWNLOAD="${{ github.event.inputs.enable_dy_video_download }}"
         MAX_IMAGES_PER_RESULT="${{ github.event.inputs.max_images_per_result }}"
-        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_TAVILY_IMG" "$MAX_IMAGES_PER_RESULT"
+        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_TAVILY_IMG" "$MAX_IMAGES_PER_RESULT" "$ENABLE_DY_VIDEO_DOWNLOAD"
     - name: Package data files
       run: |
         # 设置LC_ALL为UTF-8以支持中文字符

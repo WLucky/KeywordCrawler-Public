@@ -23,6 +23,7 @@ import os
 import pathlib
 from typing import Dict, List
 import aiofiles
+import pandas as pd
 import config
 from tools.utils import utils
 from tools.words import AsyncWordCloudGenerator
@@ -52,6 +53,18 @@ class AsyncFileWriter:
                 if not file_exists or await f.tell() == 0:
                     await writer.writeheader()
                 await writer.writerow(item)
+
+    async def write_to_xlsx(self, item: Dict, item_type: str):
+        file_path = self._get_file_path('xlsx', item_type)
+        async with self.lock:
+            file_exists = os.path.exists(file_path)
+            if file_exists and os.path.getsize(file_path) > 0:
+                df = pd.read_excel(file_path)
+                new_df = pd.DataFrame([item])
+                df = pd.concat([df, new_df], ignore_index=True)
+            else:
+                df = pd.DataFrame([item])
+            df.to_excel(file_path, index=False)
 
     async def write_to_jsonl(self, item: Dict, item_type: str):
         file_path = self._get_file_path('jsonl', item_type)

@@ -17,6 +17,7 @@
 # 详细许可条款请参阅项目根目录下的LICENSE文件。
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
+import json
 import pathlib
 from typing import Dict
 
@@ -79,11 +80,42 @@ class DouYinImage(AbstractStoreImage):
 
 
 class DouYinVideo(AbstractStoreVideo):
+    VIDEO_CONFIG_FILE = "data/video/video_config.json"
+
     def __init__(self):
         if config.SAVE_DATA_PATH:
-            self.video_store_path = f"{config.SAVE_DATA_PATH}/douyin/videos"
+            self.video_store_path = f"{config.SAVE_DATA_PATH}/video"
         else:
-            self.video_store_path = "data/douyin/videos"
+            self.video_store_path = "data/video"
+
+    @classmethod
+    def _load_video_config(cls) -> Dict[str, str]:
+        """Load video config from JSON file"""
+        try:
+            if pathlib.Path(cls.VIDEO_CONFIG_FILE).exists():
+                with open(cls.VIDEO_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            utils.logger.warning(f"[DouYinVideo] Failed to load video config: {e}")
+        return {}
+
+    @classmethod
+    def _save_video_config(cls, config_data: Dict[str, str]) -> None:
+        """Save video config to JSON file"""
+        try:
+            config_file_path = pathlib.Path(cls.VIDEO_CONFIG_FILE)
+            config_file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(cls.VIDEO_CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            utils.logger.error(f"[DouYinVideo] Failed to save video config: {e}")
+
+    @classmethod
+    def _update_video_config(cls, aweme_id: str, video_filename: str) -> None:
+        """Update video config with new video mapping"""
+        config_data = cls._load_video_config()
+        config_data[aweme_id] = video_filename
+        cls._save_video_config(config_data)
 
     async def store_video(self, video_content_item: Dict):
         """
@@ -108,7 +140,7 @@ class DouYinVideo(AbstractStoreVideo):
         Returns:
 
         """
-        return f"{self.video_store_path}/{aweme_id}/{extension_file_name}"
+        return f"{self.video_store_path}/dy_{aweme_id}.mp4"
 
     async def save_video(self, aweme_id: str, video_content: str, extension_file_name):
         """
@@ -122,8 +154,10 @@ class DouYinVideo(AbstractStoreVideo):
         Returns:
 
         """
-        pathlib.Path(self.video_store_path + "/" + aweme_id).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
         save_file_name = self.make_save_file_name(aweme_id, extension_file_name)
         async with aiofiles.open(save_file_name, 'wb') as f:
             await f.write(video_content)
             utils.logger.info(f"[DouYinVideoStoreImplement.save_video] save video {save_file_name} success ...")
+
+        self._update_video_config(aweme_id, f"dy_{aweme_id}.mp4")

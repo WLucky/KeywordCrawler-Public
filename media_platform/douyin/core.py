@@ -529,6 +529,9 @@ class DouYinCrawler(AbstractCrawler):
         """
         if not config.ENABLE_GET_MEIDAS:
             return
+        if not getattr(config, 'ENABLE_DY_VIDEO_DOWNLOAD', True):
+            utils.logger.info(f"[DouYinCrawler.get_aweme_video] Douyin video download is disabled")
+            return
         aweme_id = aweme_item.get("aweme_id")
 
         # The video URL will always exist, but when it is a short video type, the file is actually an audio file.

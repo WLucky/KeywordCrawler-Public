@@ -20,6 +20,7 @@
 import asyncio
 import copy
 import json
+import random
 import urllib.parse
 from typing import TYPE_CHECKING, Any, Callable, Dict, Union, Optional
 
@@ -342,18 +343,132 @@ class DouYinClient(AbstractApiClient, ProxyRefreshMixin):
         return result
 
     async def get_aweme_media(self, url: str) -> Union[bytes, None]:
-        async with make_async_client(proxy=self.proxy) as client:
+        max_retries = 3
+        base_delay = 2
+        chunk_size = 2 * 1024 * 1024  # 2MB 每块（代理限制约4-5MB，取更小值）
+        video_timeout = 60  # 每个块下载超时
+        
+        for attempt in range(max_retries):
             try:
-                response = await client.request("GET", url, timeout=self.timeout, follow_redirects=True)
-                response.raise_for_status()
-                if not response.reason_phrase == "OK":
-                    utils.logger.error(f"[DouYinClient.get_aweme_media] request {url} err, res:{response.text}")
-                    return None
-                else:
-                    return response.content
-            except httpx.HTTPError as exc:  # some wrong when call httpx.request method, such as connection error, client error, server error or response status code is not 2xx
-                utils.logger.error(f"[DouYinClient.get_aweme_media] {exc.__class__.__name__} for {exc.request.url} - {exc}")  # Keep the original exception type name for developers to debug
+                result = await self._download_large_file(url, chunk_size, video_timeout)
+                if result is not None:
+                    return result
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.random()
+                    utils.logger.warning(f"[DouYinClient.get_aweme_media] Download failed, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(delay)
+            except Exception as exc:
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.random()
+                    utils.logger.warning(f"[DouYinClient.get_aweme_media] {exc.__class__.__name__}: {exc}, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(delay)
+                    continue
+                utils.logger.error(f"[DouYinClient.get_aweme_media] {exc.__class__.__name__}: {exc}")
                 return None
+        
+        return None
+
+    async def _download_large_file(self, url: str, chunk_size: int, timeout: int) -> Union[bytes, None]:
+        """分块下载大文件，支持断点续传"""
+        async with make_async_client(proxy=self.proxy) as client:
+            # 先获取文件大小
+            try:
+                response = await client.request("HEAD", url, timeout=timeout, follow_redirects=True)
+                response.raise_for_status()
+                content_length = int(response.headers.get("content-length", 0))
+                supports_range = response.headers.get("accept-ranges") == "bytes"
+            except Exception as exc:
+                utils.logger.warning(f"[DouYinClient._download_large_file] HEAD request failed, trying direct download: {exc}")
+                return await self._simple_download(client, url, timeout)
+            
+            if content_length == 0:
+                return await self._simple_download(client, url, timeout)
+            
+            # 如果文件较小，直接下载
+            if content_length < chunk_size:
+                return await self._simple_download(client, url, timeout)
+            
+            # 大文件分块下载
+            if not supports_range:
+                utils.logger.warning(f"[DouYinClient._download_large_file] Server does not support range requests, trying direct download")
+                return await self._simple_download(client, url, timeout)
+            
+            utils.logger.info(f"[DouYinClient._download_large_file] Starting chunked download of {content_length / (1024*1024):.2f}MB file with {chunk_size / (1024*1024):.0f}MB chunks")
+            
+            total_chunks = (content_length + chunk_size - 1) // chunk_size
+            downloaded_data = bytearray()
+            start_byte = 0
+            chunk_max_retries = 5  # 单个块最大重试次数
+            chunk_base_delay = 1
+            
+            while start_byte < content_length:
+                end_byte = min(start_byte + chunk_size - 1, content_length - 1)
+                range_header = f"bytes={start_byte}-{end_byte}"
+                chunk_downloaded = False
+                
+                for chunk_attempt in range(chunk_max_retries):
+                    try:
+                        # 每个块下载前添加随机延迟，避免触发限流
+                        if start_byte > 0:
+                            await asyncio.sleep(random.uniform(0.5, 1.5))
+                        
+                        response = await client.request(
+                            "GET", url, 
+                            headers={"Range": range_header},
+                            timeout=timeout, 
+                            follow_redirects=True
+                        )
+                        response.raise_for_status()
+                        
+                        chunk = response.content
+                        if chunk:
+                            downloaded_data.extend(chunk)
+                            start_byte = end_byte + 1
+                            progress = (start_byte / content_length) * 100
+                            utils.logger.info(f"[DouYinClient._download_large_file] Downloaded {start_byte}/{content_length} ({progress:.1f}%)")
+                            chunk_downloaded = True
+                        else:
+                            utils.logger.warning(f"[DouYinClient._download_large_file] Empty chunk received at offset {start_byte}")
+                        break
+                    except httpx.HTTPError as exc:
+                        if chunk_attempt < chunk_max_retries - 1:
+                            delay = chunk_base_delay * (2 ** chunk_attempt) + random.random()
+                            utils.logger.warning(f"[DouYinClient._download_large_file] Chunk {start_byte}-{end_byte} failed, retrying in {delay:.1f}s (attempt {chunk_attempt + 1}/{chunk_max_retries})")
+                            await asyncio.sleep(delay)
+                            continue
+                        utils.logger.error(f"[DouYinClient._download_large_file] Chunk {start_byte}-{end_byte} failed after {chunk_max_retries} attempts: {exc}")
+                        raise
+                    except Exception as exc:
+                        if chunk_attempt < chunk_max_retries - 1:
+                            delay = chunk_base_delay * (2 ** chunk_attempt) + random.random()
+                            utils.logger.warning(f"[DouYinClient._download_large_file] Chunk {start_byte}-{end_byte} unexpected error, retrying in {delay:.1f}s (attempt {chunk_attempt + 1}/{chunk_max_retries})")
+                            await asyncio.sleep(delay)
+                            continue
+                        utils.logger.error(f"[DouYinClient._download_large_file] Chunk {start_byte}-{end_byte} unexpected error after {chunk_max_retries} attempts: {exc}")
+                        raise
+                
+                if not chunk_downloaded:
+                    break
+            
+            if len(downloaded_data) == content_length:
+                utils.logger.info(f"[DouYinClient._download_large_file] Download completed successfully")
+                return bytes(downloaded_data)
+            else:
+                utils.logger.error(f"[DouYinClient._download_large_file] Download incomplete: expected {content_length} bytes, got {len(downloaded_data)}")
+                return None
+
+    async def _simple_download(self, client, url: str, timeout: int) -> Union[bytes, None]:
+        """简单下载（非分块）"""
+        try:
+            response = await client.request("GET", url, timeout=timeout, follow_redirects=True)
+            response.raise_for_status()
+            if not response.reason_phrase == "OK":
+                utils.logger.error(f"[DouYinClient._simple_download] request {url} err, res:{response.text}")
+                return None
+            return response.content
+        except httpx.HTTPError as exc:
+            utils.logger.error(f"[DouYinClient._simple_download] {exc.__class__.__name__} for {getattr(exc, 'request', type('obj', (object,), {'url': url})) and getattr(exc.request, 'url', url)} - {exc}")
+            return None
 
     async def resolve_short_url(self, short_url: str) -> str:
         """

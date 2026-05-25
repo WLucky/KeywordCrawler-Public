@@ -28,10 +28,10 @@ TIME_RANGE_MAPPING = {
 }
 
 # 当前时间范围
-CURRENT_TIME_RANGE = "week"
+CURRENT_TIME_RANGE = None
 
 # Target time range in days specified by user (for timestamp filtering)
-TARGET_TIME_RANGE_DAYS = 5
+TARGET_TIME_RANGE_DAYS = 0
 
 # 是否启用图片下载
 ENABLE_TAVILY_IMG = True

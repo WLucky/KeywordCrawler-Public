@@ -7,6 +7,12 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+try:
+    import openpyxl
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
+
 # 确保所有 print 语句实时刷新
 class Unbuffered:
     def __init__(self, stream):
@@ -22,7 +28,7 @@ class Unbuffered:
 
 sys.stdout = Unbuffered(sys.stdout)
 
-def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3):
+def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_dy_video_download=True):
     """更新配置文件中的PLATFORM和KEYWORDS"""
     config_file = 'config/base_config.py'
     
@@ -61,7 +67,7 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         dy_config_file = 'config/dy_config.py'
         with open(dy_config_file, 'r', encoding='utf-8') as f:
             dy_content = f.read()
-        
+
         # 将任意天数适配到抖音支持的**更大**范围
         # 抖音支持: 0(不限), 1(一天内), 7(一周内), 180(半年内)
         # 如果超过最大范围(180天)，则改为不限时间，然后通过时间戳过滤
@@ -76,15 +82,27 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         else:
             # 超过最大支持范围，改为不限时间，通过时间戳过滤
             dy_time_type = 0
-        
+
         # 更新PUBLISH_TIME_TYPE
         dy_content = re.sub(r'PUBLISH_TIME_TYPE = \d+', f'PUBLISH_TIME_TYPE = {dy_time_type}', dy_content)
-        
+
         # 更新TARGET_TIME_RANGE_DAYS（保存用户输入的原始时间范围，用于后续时间戳过滤）
         dy_content = re.sub(r'TARGET_TIME_RANGE_DAYS = \d+', f'TARGET_TIME_RANGE_DAYS = {time_type}', dy_content)
-        
+
+        # 更新ENABLE_DY_VIDEO_DOWNLOAD
+        dy_content = re.sub(r'ENABLE_DY_VIDEO_DOWNLOAD = \w+', f'ENABLE_DY_VIDEO_DOWNLOAD = {enable_dy_video_download}', dy_content)
+
         with open(dy_config_file, 'w', encoding='utf-8') as f:
             f.write(dy_content)
+
+        # 如果启用了抖音视频下载，同时启用媒体下载
+        if enable_dy_video_download:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            content = re.sub(r'ENABLE_GET_MEIDAS = \w+', 'ENABLE_GET_MEIDAS = True', content)
+            with open(config_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f'已启用抖音视频下载，同时开启媒体下载模式')
         
         print(f'已更新抖音时间类型为: {dy_time_type} (输入: {time_type}天)')
         if time_type > 0 and dy_time_type != time_type:
@@ -161,6 +179,9 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
             print(f'提示: Tavily将通过时间戳过滤实现{time_type}天的时间范围控制')
         print(f'已更新Tavily图片下载为: {enable_tavily_img}')
         print(f'已更新Tavily最大图片数量为: {max_images_per_result}')
+
+    if platform == 'dy':
+        print(f'已更新抖音视频下载为: {enable_dy_video_download}')
     
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')
@@ -170,7 +191,7 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
 
 import time
 
-def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, max_retries=3, retry_delay=5):
+def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_dy_video_download=True, max_retries=3, retry_delay=5):
     """运行单个平台的爬虫"""
     print(f'=========================================')
     print(f'开始爬取平台: {platform}')
@@ -181,6 +202,7 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     print(f'启用二级评论: {enable_sub_comments}')
     print(f'Tavily图片下载: {enable_tavily_img}')
     print(f'每个搜索结果最大图片数: {max_images_per_result}')
+    print(f'抖音视频下载: {enable_dy_video_download}')
     print(f'最大重试次数: {max_retries}')
     print(f'重试等待时间: {retry_delay}秒')
     print(f'=========================================')
@@ -188,7 +210,7 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     for attempt in range(max_retries + 1):
         try:
             # 更新配置
-            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result)
+            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_dy_video_download)
             
             # 运行爬虫
             exit_code = os.system('python main.py')
@@ -268,6 +290,13 @@ def generate_video_download_markdown(platforms, keywords):
         # 查找内容文件 - 支持多种存储路径
         content_files = []
         platform_name = get_platform_name(platform)
+        platform_full_names = {
+            'dy': 'douyin',
+            'bili': 'bilibili',
+            'xhs': 'xiaohongshu',
+            'ks': 'kuaishou',
+            'wb': 'weibo'
+        }
         
         # 搜索路径：data/csv/ 目录（全局CSV存储）
         csv_dir = data_dir / 'csv'
@@ -279,27 +308,39 @@ def generate_video_download_markdown(platforms, keywords):
                 content_files.extend(list(csv_dir.glob(f'*{platform_name}*contents*.{ext}')))
                 content_files.extend(list(csv_dir.glob(f'*{platform_name}*video*.{ext}')))
                 content_files.extend(list(csv_dir.glob(f'*{platform_name}*content*.{ext}')))
-                platform_full_names = {
-                    'dy': 'douyin',
-                    'bili': 'bilibili',
-                    'xhs': 'xiaohongshu',
-                    'ks': 'kuaishou',
-                    'wb': 'weibo'
-                }
                 if platform in platform_full_names:
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*contents*.{ext}')))
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*video*.{ext}')))
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*content*.{ext}')))
         
+        # 搜索路径：data/xlsx/ 目录（全局XLSX存储）
+        xlsx_dir = data_dir / 'xlsx'
+        if xlsx_dir.exists():
+            for ext in ['xlsx']:
+                # 匹配 xlsx 文件命名格式: {platform}_{crawler_type}_{timestamp}.xlsx
+                content_files.extend(list(xlsx_dir.glob(f'{platform}_*.{ext}')))
+                content_files.extend(list(xlsx_dir.glob(f'{platform_name}_*.{ext}')))
+                if platform in platform_full_names:
+                    content_files.extend(list(xlsx_dir.glob(f'{platform_full_names[platform]}_*.{ext}')))
+        
         # 搜索路径：data/{platform}/ 目录
         platform_dir = data_dir / platform
         if platform_dir.exists():
-            for ext in ['json', 'jsonl', 'csv']:
+            for ext in ['json', 'jsonl', 'csv', 'xlsx']:
                 content_files.extend(list(platform_dir.glob(f'**/*contents*.{ext}')))
-        
+                content_files.extend(list(platform_dir.glob(f'**/*video*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*{platform}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*{platform_full_names.get(platform, platform)}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*search*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'*{platform}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'*{platform_full_names.get(platform, platform)}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'*search*.{ext}')))
+
         # 搜索路径：data/ 根目录
-        for ext in ['json', 'jsonl']:
+        for ext in ['json', 'jsonl', 'xlsx']:
             content_files.extend(list(data_dir.glob(f'*{platform}*contents*.{ext}')))
+            content_files.extend(list(data_dir.glob(f'*{platform}*video*.{ext}')))
+            content_files.extend(list(data_dir.glob(f'*{platform}*search*.{ext}')))
         
         # 去重文件列表
         content_files = list(set(content_files))
@@ -340,6 +381,26 @@ def generate_video_download_markdown(platforms, keywords):
                         print(f"CSV文件列头: {reader.fieldnames}")
                         for row in reader:
                             extract_video_links(row, video_links, platform)
+
+                elif content_file.suffix == '.xlsx' and EXCEL_AVAILABLE:
+                    try:
+                        workbook = openpyxl.load_workbook(content_file, data_only=True)
+                        for sheet_name in workbook.sheetnames:
+                            sheet = workbook[sheet_name]
+                            headers = None
+                            for row_idx, row in enumerate(sheet.iter_rows(values_only=True), 1):
+                                if row_idx == 1:
+                                    headers = list(row)
+                                    continue
+                                if not any(row):
+                                    continue
+                                if headers:
+                                    item = dict(zip(headers, row))
+                                    extract_video_links(item, video_links, platform)
+                        workbook.close()
+                        print(f"已处理Excel文件: {content_file}")
+                    except Exception as e:
+                        print(f"读取Excel文件 {content_file} 时出错: {str(e)}")
             
             except Exception as e:
                 print(f"读取文件 {content_file} 时出错: {str(e)}")
@@ -545,14 +606,15 @@ def get_platform_name(platform):
 def main():
     """主函数"""
     if len(sys.argv) < 3:
-        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments] [enable_tavily_img] [max_images_per_result]')
-        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false false 3')
+        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments] [enable_tavily_img] [max_images_per_result] [enable_dy_video_download]')
+        print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false false 3 true')
         print('时间类型: 0=不限, 1=一天内, 7=一周内, 180=半年内')
         print('爬取视频数量: 默认为15')
         print('单视频评论数量: 默认为10')
         print('启用二级评论: true/false, 默认为false')
         print('Tavily图片下载: true/false, 默认为false')
         print('每个搜索结果最大图片数: 默认为3')
+        print('抖音视频下载: true/false, 默认为true')
         sys.exit(1)
     
     platforms_str = sys.argv[1]
@@ -563,6 +625,7 @@ def main():
     enable_sub_comments = sys.argv[6].lower() == 'true' if len(sys.argv) > 6 else False
     enable_tavily_img = sys.argv[7].lower() == 'true' if len(sys.argv) > 7 else False
     max_images_per_result = int(sys.argv[8]) if len(sys.argv) > 8 else 3
+    enable_dy_video_download = sys.argv[9].lower() == 'true' if len(sys.argv) > 9 else True
     
     # 将平台字符串转换为数组
     platforms = [p.strip() for p in platforms_str.split(',')]
@@ -570,7 +633,7 @@ def main():
     # 为每个平台运行爬虫
     for platform in platforms:
         try:
-            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, max_retries=3, retry_delay=5)
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_dy_video_download, max_retries=3, retry_delay=5)
         except Exception as e:
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')

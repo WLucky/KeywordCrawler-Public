@@ -111,11 +111,11 @@ class ExcelStoreBase(AbstractStore):
         self.platform = platform
         self.crawler_type = crawler_type
 
-        # Create data directory
+        # Create data directory - save to xlsx folder (similar to csv folder structure)
         if config.SAVE_DATA_PATH:
-            self.data_dir = Path(config.SAVE_DATA_PATH) / platform
+            self.data_dir = Path(config.SAVE_DATA_PATH) / "xlsx"
         else:
-            self.data_dir = Path("data") / platform
+            self.data_dir = Path("data") / "xlsx"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize workbook

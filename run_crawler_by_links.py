@@ -8,6 +8,12 @@ import time
 from pathlib import Path
 from datetime import datetime
 
+try:
+    import openpyxl
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -165,13 +171,30 @@ def generate_video_download_markdown(platforms, keywords):
                 if platform in platform_full_names:
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*contents*.{ext}')))
 
+        # 搜索路径：data/xlsx/ 目录（全局XLSX存储）
+        xlsx_dir = data_dir / 'xlsx'
+        if xlsx_dir.exists():
+            for ext in ['xlsx']:
+                # 匹配 xlsx 文件命名格式: {platform}_{crawler_type}_{timestamp}.xlsx
+                content_files.extend(list(xlsx_dir.glob(f'{platform}_*.{ext}')))
+                content_files.extend(list(xlsx_dir.glob(f'{platform_name}_*.{ext}')))
+                if platform in platform_full_names:
+                    content_files.extend(list(xlsx_dir.glob(f'{platform_full_names[platform]}_*.{ext}')))
+
         platform_dir = data_dir / platform
         if platform_dir.exists():
-            for ext in ['json', 'jsonl', 'csv']:
+            for ext in ['json', 'jsonl', 'csv', 'xlsx']:
                 content_files.extend(list(platform_dir.glob(f'**/*contents*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*video*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*{platform}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'**/*search*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'*{platform}*.{ext}')))
+                content_files.extend(list(platform_dir.glob(f'*search*.{ext}')))
 
-        for ext in ['json', 'jsonl']:
+        for ext in ['json', 'jsonl', 'xlsx']:
             content_files.extend(list(data_dir.glob(f'*{platform}*contents*.{ext}')))
+            content_files.extend(list(data_dir.glob(f'*{platform}*video*.{ext}')))
+            content_files.extend(list(data_dir.glob(f'*{platform}*search*.{ext}')))
 
         content_files = list(set(content_files))
 
@@ -209,6 +232,26 @@ def generate_video_download_markdown(platforms, keywords):
                         print(f"CSV文件列头: {reader.fieldnames}")
                         for row in reader:
                             extract_video_links(row, video_links, platform)
+
+                elif content_file.suffix == '.xlsx' and EXCEL_AVAILABLE:
+                    try:
+                        workbook = openpyxl.load_workbook(content_file, data_only=True)
+                        for sheet_name in workbook.sheetnames:
+                            sheet = workbook[sheet_name]
+                            headers = None
+                            for row_idx, row in enumerate(sheet.iter_rows(values_only=True), 1):
+                                if row_idx == 1:
+                                    headers = list(row)
+                                    continue
+                                if not any(row):
+                                    continue
+                                if headers:
+                                    item = dict(zip(headers, row))
+                                    extract_video_links(item, video_links, platform)
+                        workbook.close()
+                        print(f"已处理Excel文件: {content_file}")
+                    except Exception as e:
+                        print(f"读取Excel文件 {content_file} 时出错: {str(e)}")
 
             except Exception as e:
                 print(f"读取文件 {content_file} 时出错: {str(e)}")

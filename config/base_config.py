@@ -18,13 +18,13 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # Basic configuration
-PLATFORM = "tavily"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tavily
+PLATFORM = "dy"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tavily
 
 # 是否使用海外版小红书 (rednote.com)
 # 开启后 API 走 webapi.rednote.com，cookie 域使用 .rednote.com
 XHS_INTERNATIONAL = False
 
-KEYWORDS = "比亚迪大唐"  # Keyword search configuration, separated by English commas
+KEYWORDS = "小米yu7"  # Keyword search configuration, separated by English commas
 LOGIN_TYPE = "cookie"  # qrcode or phone or cookie
 CRAWLER_TYPE = (
     "search"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
@@ -124,7 +124,7 @@ BROWSER_LAUNCH_TIMEOUT = 60
 AUTO_CLOSE_BROWSER = True
 
 # Data saving type option configuration, supports: csv, db, json, jsonl, sqlite, excel, postgres. It is best to save to DB, with deduplication function.
-SAVE_DATA_OPTION = "csv"  # csv or db or json or jsonl or sqlite or excel or postgres
+SAVE_DATA_OPTION = "excel"  # csv or db or json or jsonl or sqlite or excel or postgres
 
 # Data saving path, if not specified by default, it will be saved to the data folder.
 SAVE_DATA_PATH = ""
@@ -136,13 +136,13 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # Control the number of crawled videos/posts
-CRAWLER_MAX_NOTES_COUNT = 10
+CRAWLER_MAX_NOTES_COUNT = 1
 
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1
 
 # Whether to enable crawling media mode (including image or video resources), crawling media is not enabled by default
-ENABLE_GET_MEIDAS = False
+ENABLE_GET_MEIDAS = True
 
 # Whether to enable comment crawling mode. Comment crawling is enabled by default.
 ENABLE_GET_COMMENTS = True
@@ -152,7 +152,7 @@ CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 3
 
 # Whether to enable the mode of crawling second-level comments. By default, crawling of second-level comments is not enabled.
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
-ENABLE_GET_SUB_COMMENTS = True
+ENABLE_GET_SUB_COMMENTS = False
 
 # word cloud related
 # Whether to enable generating comment word c  louds
