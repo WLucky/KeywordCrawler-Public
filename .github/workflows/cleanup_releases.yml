@@ -1,0 +1,116 @@
+# 自动清理过期 Release
+
+name: Auto Cleanup Old Releases
+
+on:
+  schedule:
+    # 每月1号凌晨3点执行（UTC时间）
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+    inputs:
+      days_to_keep:
+        description: '保留最近多少天的release'
+        required: true
+        type: number
+        default: 30
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.11"
+
+    - name: Cleanup old releases
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO_OWNER: ${{ github.repository_owner }}
+        REPO_NAME: ${{ github.event.repository.name }}
+        DAYS_TO_KEEP: ${{ github.event.inputs.days_to_keep || 30 }}
+      run: |
+        python3 << 'EOF'
+        import os
+        import sys
+        import json
+        import subprocess
+        from datetime import datetime, timezone, timedelta
+
+        def run_command(cmd):
+            """运行命令并返回输出"""
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            return result.stdout, result.stderr, result.returncode
+
+        # 获取所有 releases
+        print("获取所有 releases...")
+        stdout, stderr, returncode = run_command(
+            f'curl -s -H "Authorization: token {os.environ["GITHUB_TOKEN"]}" '
+            f'https://api.github.com/repos/{os.environ["REPO_OWNER"]}/{os.environ["REPO_NAME"]}/releases'
+        )
+        
+        if returncode != 0:
+            print(f"获取 releases 失败: {stderr}")
+            sys.exit(1)
+
+        try:
+            releases = json.loads(stdout)
+        except json.JSONDecodeError as e:
+            print(f"解析 releases JSON 失败: {e}")
+            sys.exit(1)
+
+        # 计算过期时间
+        days_to_keep = int(os.environ.get("DAYS_TO_KEEP", 30))
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
+        print(f"清理 {days_to_keep} 天前的 releases (截止日期: {cutoff_date})")
+
+        # 统计变量
+        total_releases = len(releases)
+        deleted_count = 0
+        kept_count = 0
+        failed_count = 0
+
+        # 遍历所有 releases
+        for release in releases:
+            # 获取 release 创建时间
+            created_at = datetime.fromisoformat(release['created_at'].replace('Z', '+00:00'))
+            
+            # 跳过 draft 和 prerelease
+            if release['draft'] or release['prerelease']:
+                print(f"跳过 draft/prerelease release: {release['name']}")
+                kept_count += 1
+                continue
+
+            # 判断是否过期
+            if created_at < cutoff_date:
+                print(f"删除过期 release: {release['name']} (创建于 {created_at})")
+                
+                # 删除 release
+                url = release['url']
+                stdout, stderr, returncode = run_command(
+                    f'curl -s -X DELETE -H "Authorization: token {os.environ["GITHUB_TOKEN"]}" {url}'
+                )
+                
+                if returncode == 0:
+                    print(f"成功删除: {release['name']}")
+                    deleted_count += 1
+                else:
+                    print(f"删除失败: {release['name']} - {stderr}")
+                    failed_count += 1
+            else:
+                print(f"保留 release: {release['name']} (创建于 {created_at})")
+                kept_count += 1
+
+        # 输出统计结果
+        print("\n=== 清理完成 ===")
+        print(f"总 releases: {total_releases}")
+        print(f"已删除: {deleted_count}")
+        print(f"保留: {kept_count}")
+        print(f"删除失败: {failed_count}")
+        EOF

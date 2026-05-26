@@ -35,7 +35,7 @@ ENABLE_DY_VIDEO_DOWNLOAD = True
 # 4. Short link: "https://v.douyin.com/drIPtQ_WPWY/"
 # 5. Pure video ID: "7280854932641664319"
 DY_SPECIFIED_ID_LIST = [
-    "7639257796055367110",
+    "7643020495080209307",
 ]
 
 # Specify DY creator URL list (supports full URL or sec_user_id)

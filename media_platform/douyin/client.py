@@ -345,7 +345,7 @@ class DouYinClient(AbstractApiClient, ProxyRefreshMixin):
     async def get_aweme_media(self, url: str) -> Union[bytes, None]:
         max_retries = 3
         base_delay = 2
-        chunk_size = 4 * 1024 * 1024  # 4MB 每块（代理限制约4-5MB）
+        chunk_size = 3 * 1024 * 1024  # 3MB 每块（代理限制约4-5MB）
         video_timeout = 60  # 每个块下载超时
         
         for attempt in range(max_retries):

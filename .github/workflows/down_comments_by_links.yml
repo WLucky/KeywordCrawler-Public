@@ -1,13 +1,21 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: 抖音视频链接评论爬取
+name: 视频链接评论爬取
 
 on:
   workflow_dispatch:
     inputs:
+      platform:
+        description: '平台选择（根据视频链接类型选择）'
+        required: true
+        type: choice
+        options:
+          - 'dy'
+          - 'bili'
+        default: 'dy'
       video_links:
-        description: '抖音视频链接（英文分号间隔，支持完整链接/短链接/modal_id/纯ID）'
+        description: '视频链接（英文分号间隔，支持完整链接/短链接/modal_id/纯ID）'
         required: true
         default: 'https://www.douyin.com/video/7525538910311632128;https://v.douyin.com/drIPtQ_WPWY/;7202432992642387233'
       max_comments:
@@ -17,6 +25,11 @@ on:
         default: 8000
       enable_sub_comments:
         description: '是否启用二级评论'
+        required: true
+        type: boolean
+        default: true
+      enable_video_download:
+        description: '是否下载视频'
         required: true
         type: boolean
         default: true
@@ -51,23 +64,59 @@ jobs:
         playwright install
     - name: Run crawler for video links
       run: |
-        python run_crawler_by_links.py "${{ github.event.inputs.video_links }}" "${{ github.event.inputs.max_comments }}" "${{ github.event.inputs.enable_sub_comments }}"
+        PLATFORM="${{ github.event.inputs.platform }}"
+        VIDEO_LINKS="${{ github.event.inputs.video_links }}"
+        MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
+        ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
+        ENABLE_VIDEO_DOWNLOAD="${{ github.event.inputs.enable_video_download }}"
+        
+        python run_crawler_by_links.py "$PLATFORM" "$VIDEO_LINKS" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_VIDEO_DOWNLOAD"
     - name: Package data files
       run: |
+        # 设置LC_ALL为UTF-8以支持中文字符
         export LC_ALL=C.UTF-8
         
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
         
-        echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
-        echo "RELEASE_NAME=抖音视频评论_${DATE}" >> $GITHUB_ENV
+        # 设置环境变量供后续步骤使用
+        echo "RELEASE_NAME=视频评论_${DATE}" >> $GITHUB_ENV
         
+        # 打包整个data目录
         if [ -d "data" ]; then
-          zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
-          echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
+          # 计算data目录大小（字节）
+          DATA_SIZE=$(du -sb data/ | cut -f1)
+          echo "data目录大小: $DATA_SIZE 字节"
+          
+          # 1.5GB = 1.5 * 1024 * 1024 * 1024 = 1610612736 字节
+          MAX_SIZE=1610612736
+          
+          if [ "$DATA_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "data目录超过1.5GB，将进行分卷压缩"
+            # 使用分卷压缩，每卷1.5GB（1500MB）
+            zip -r -UN=UTF8 -s 1500m "${DATE}_${{ github.run_id }}" data/
+            echo "已创建分卷压缩文件"
+            
+            # 获取所有分卷文件名
+            PART_FILES=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | tr '\n' ' ')
+            echo "PART_FILES=$PART_FILES" >> $GITHUB_ENV
+            echo "PACKAGE_COUNT=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | wc -l)" >> $GITHUB_ENV
+            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.z01" >> $GITHUB_ENV
+          else
+            echo "data目录未超过1.5GB，进行普通压缩"
+            # 使用-UN=UTF8选项确保zip包支持中文
+            zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
+            echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
+            echo "PART_FILES=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+            echo "PACKAGE_COUNT=1" >> $GITHUB_ENV
+            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+          fi
+          
           echo "文件内容:"
-          unzip -l "${DATE}_${{ github.run_id }}.zip"
+          ls -la "${DATE}_${{ github.run_id }}"* 2>/dev/null || ls -la "${DATE}_${{ github.run_id }}.zip" 2>/dev/null
         else
           echo "警告: data 目录不存在"
+          echo "PART_FILES=" >> $GITHUB_ENV
+          echo "PACKAGE_COUNT=0" >> $GITHUB_ENV
         fi
 
     - name: Read markdown content for release
@@ -108,6 +157,7 @@ jobs:
           - 视频评论数据
           - 创作者信息
           - 视频下载链接汇总（Markdown格式）
+          - 配置文件（config.json）
         draft: false
         prerelease: false
       env:
@@ -116,7 +166,9 @@ jobs:
       uses: softprops/action-gh-release@v2.1.0
       with:
         tag_name: VideoLinks-${{ github.run_id }}
-        files: ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
+        files: |
+          ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
+          ${{ github.workspace }}/${{ env.PART_FILES }}
         token: ${{ secrets.GITHUB_TOKEN }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

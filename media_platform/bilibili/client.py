@@ -221,21 +221,130 @@ class BilibiliClient(AbstractApiClient, ProxyRefreshMixin):
 
         return await self.get(uri, params, enable_params_sign=True)
 
-    async def get_video_media(self, url: str) -> Union[bytes, None]:
-        # Follow CDN 302 redirects and treat any 2xx as success (some endpoints return 206)
+    async def _simple_download(self, client, url: str, timeout) -> Union[bytes, None]:
+        """
+        Simple download for small files
+        """
+        try:
+            response = await client.request("GET", url, timeout=timeout, headers=self.headers)
+            response.raise_for_status()
+            if 200 <= response.status_code < 300:
+                return response.content
+            utils.logger.error(
+                f"[BilibiliClient._simple_download] Unexpected status {response.status_code} for {url}"
+            )
+            return None
+        except httpx.HTTPError as exc:
+            utils.logger.error(f"[BilibiliClient._simple_download] {exc.__class__.__name__} for {exc.request.url} - {exc}")
+            return None
+
+    async def _download_large_file(self, url: str, chunk_size: int = 3 * 1024 * 1024) -> Union[bytes, None]:
+        """
+        Download large files using chunked requests with Range header
+        :param url: The URL to download
+        :param chunk_size: Size of each chunk in bytes (default: 3MB)
+        :return: Downloaded file content as bytes or None if failed
+        """
         async with make_async_client(proxy=self.proxy, follow_redirects=True) as client:
+            timeout = self.timeout
+            
+            # First, try to get file size with HEAD request
             try:
-                response = await client.request("GET", url, timeout=self.timeout, headers=self.headers)
-                response.raise_for_status()
-                if 200 <= response.status_code < 300:
-                    return response.content
-                utils.logger.error(
-                    f"[BilibiliClient.get_video_media] Unexpected status {response.status_code} for {url}"
-                )
+                head_response = await client.request("HEAD", url, timeout=timeout, headers=self.headers)
+                head_response.raise_for_status()
+                content_length = int(head_response.headers.get("content-length", 0))
+                supports_range = "accept-ranges" in head_response.headers
+            except Exception as exc:
+                utils.logger.warning(f"[BilibiliClient._download_large_file] HEAD request failed, trying direct download: {exc}")
+                return await self._simple_download(client, url, timeout)
+            
+            if content_length == 0:
+                return await self._simple_download(client, url, timeout)
+            
+            # 如果文件较小，直接下载
+            if content_length < chunk_size:
+                return await self._simple_download(client, url, timeout)
+            
+            # 大文件分块下载
+            if not supports_range:
+                utils.logger.warning(f"[BilibiliClient._download_large_file] Server does not support range requests, trying direct download")
+                return await self._simple_download(client, url, timeout)
+            
+            utils.logger.info(f"[BilibiliClient._download_large_file] Starting chunked download of {content_length / (1024*1024):.2f}MB file with {chunk_size / (1024*1024):.0f}MB chunks")
+            
+            total_chunks = (content_length + chunk_size - 1) // chunk_size
+            downloaded_data = bytearray()
+            start_byte = 0
+            chunk_max_retries = 5  # 单个块最大重试次数
+            chunk_base_delay = 1
+            
+            while start_byte < content_length:
+                end_byte = min(start_byte + chunk_size - 1, content_length - 1)
+                range_header = f"bytes={start_byte}-{end_byte}"
+                chunk_downloaded = False
+                
+                for chunk_attempt in range(chunk_max_retries):
+                    try:
+                        # 每个块下载前添加随机延迟，避免触发限流
+                        if start_byte > 0:
+                            await asyncio.sleep(random.uniform(0.5, 1.5))
+                        
+                        response = await client.request(
+                            "GET", url, 
+                            headers={**self.headers, "Range": range_header},
+                            timeout=timeout, 
+                            follow_redirects=True
+                        )
+                        response.raise_for_status()
+                        
+                        chunk = response.content
+                        if chunk:
+                            downloaded_data.extend(chunk)
+                            start_byte = end_byte + 1
+                            progress = (start_byte / content_length) * 100
+                            utils.logger.info(f"[BilibiliClient._download_large_file] Downloaded {start_byte}/{content_length} ({progress:.1f}%)")
+                            chunk_downloaded = True
+                        else:
+                            utils.logger.warning(f"[BilibiliClient._download_large_file] Empty chunk received at offset {start_byte}")
+                        break
+                    except httpx.HTTPError as exc:
+                        if chunk_attempt < chunk_max_retries - 1:
+                            delay = chunk_base_delay * (2 ** chunk_attempt) + random.random()
+                            utils.logger.warning(f"[BilibiliClient._download_large_file] Chunk {start_byte}-{end_byte} failed, retrying in {delay:.1f}s (attempt {chunk_attempt + 1}/{chunk_max_retries})")
+                            await asyncio.sleep(delay)
+                            continue
+                        utils.logger.error(f"[BilibiliClient._download_large_file] Chunk {start_byte}-{end_byte} failed after {chunk_max_retries} attempts: {exc}")
+                        raise
+                    except Exception as exc:
+                        if chunk_attempt < chunk_max_retries - 1:
+                            delay = chunk_base_delay * (2 ** chunk_attempt) + random.random()
+                            utils.logger.warning(f"[BilibiliClient._download_large_file] Chunk {start_byte}-{end_byte} unexpected error, retrying in {delay:.1f}s (attempt {chunk_attempt + 1}/{chunk_max_retries})")
+                            await asyncio.sleep(delay)
+                            continue
+                        utils.logger.error(f"[BilibiliClient._download_large_file] Chunk {start_byte}-{end_byte} unexpected error after {chunk_max_retries} attempts: {exc}")
+                        raise
+                
+                if not chunk_downloaded:
+                    break
+            
+            if len(downloaded_data) == content_length:
+                utils.logger.info(f"[BilibiliClient._download_large_file] Download completed successfully")
+                return bytes(downloaded_data)
+            else:
+                utils.logger.error(f"[BilibiliClient._download_large_file] Download incomplete: expected {content_length} bytes, got {len(downloaded_data)}")
                 return None
-            except httpx.HTTPError as exc:  # some wrong when call httpx.request method, such as connection error, client error, server error or response status code is not 2xx
-                utils.logger.error(f"[BilibiliClient.get_video_media] {exc.__class__.__name__} for {exc.request.url} - {exc}")  # Keep original exception type name for developer debugging
-                return None
+
+    async def get_video_media(self, url: str) -> Union[bytes, None]:
+        """
+        Download video media with support for large file chunked downloading
+        :param url: Video URL to download
+        :return: Video content as bytes or None if failed
+        """
+        try:
+            return await self._download_large_file(url)
+        except Exception as exc:
+            utils.logger.error(f"[BilibiliClient.get_video_media] Failed to download video: {exc}")
+            return None
 
     async def get_video_comments(
         self,

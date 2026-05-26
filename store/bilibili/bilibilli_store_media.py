@@ -21,6 +21,7 @@
 # @Author  : helloteemo
 # @Time    : 2024/7/12 20:01
 # @Desc    : Bilibili media storage
+import json
 import pathlib
 from typing import Dict
 
@@ -32,11 +33,43 @@ import config
 
 
 class BilibiliVideo(AbstractStoreVideo):
+    VIDEO_CONFIG_FILE = "data/video/video_config.json"
+
     def __init__(self):
+        # 使用与抖音一致的存储路径：data/video
         if config.SAVE_DATA_PATH:
-            self.video_store_path = f"{config.SAVE_DATA_PATH}/bili/videos"
+            self.video_store_path = f"{config.SAVE_DATA_PATH}/video"
         else:
-            self.video_store_path = "data/bili/videos"
+            self.video_store_path = "data/video"
+
+    @classmethod
+    def _load_video_config(cls) -> Dict[str, str]:
+        """Load video config from JSON file"""
+        try:
+            if pathlib.Path(cls.VIDEO_CONFIG_FILE).exists():
+                with open(cls.VIDEO_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            utils.logger.warning(f"[BilibiliVideo] Failed to load video config: {e}")
+        return {}
+
+    @classmethod
+    def _save_video_config(cls, config_data: Dict[str, str]) -> None:
+        """Save video config to JSON file"""
+        try:
+            config_file_path = pathlib.Path(cls.VIDEO_CONFIG_FILE)
+            config_file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(cls.VIDEO_CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            utils.logger.error(f"[BilibiliVideo] Failed to save video config: {e}")
+
+    @classmethod
+    def _update_video_config(cls, aid: str, video_filename: str) -> None:
+        """Update video config with new video mapping"""
+        config_data = cls._load_video_config()
+        config_data[aid] = video_filename
+        cls._save_video_config(config_data)
 
     async def store_video(self, video_content_item: Dict):
         """
@@ -61,7 +94,8 @@ class BilibiliVideo(AbstractStoreVideo):
         Returns:
 
         """
-        return f"{self.video_store_path}/{aid}/{extension_file_name}"
+        # 使用与抖音一致的命名格式：bili_{aid}.mp4
+        return f"{self.video_store_path}/bili_{aid}.mp4"
 
     async def save_video(self, aid: int, video_content: str, extension_file_name="mp4"):
         """
@@ -75,8 +109,11 @@ class BilibiliVideo(AbstractStoreVideo):
         Returns:
 
         """
-        pathlib.Path(self.video_store_path + "/" + str(aid)).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
         save_file_name = self.make_save_file_name(str(aid), extension_file_name)
         async with aiofiles.open(save_file_name, 'wb') as f:
             await f.write(video_content)
             utils.logger.info(f"[BilibiliVideoImplement.save_video] save save_video {save_file_name} success ...")
+
+        # 更新视频配置文件
+        self._update_video_config(str(aid), f"bili_{aid}.mp4")

@@ -192,7 +192,7 @@ class TavilyCrawler(AbstractCrawler):
             import config
             if config.SAVE_DATA_OPTION == "csv":
                 await self.file_writer.write_to_csv(item, "contents")
-            elif config.SAVE_DATA_OPTION == "xlsx":
+            elif config.SAVE_DATA_OPTION == "excel" or config.SAVE_DATA_OPTION == "xlsx":
                 await self.file_writer.write_to_xlsx(item, "contents")
             elif config.SAVE_DATA_OPTION == "jsonl":
                 await self.file_writer.write_to_jsonl(item, "contents")

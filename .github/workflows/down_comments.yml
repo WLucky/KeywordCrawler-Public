@@ -125,19 +125,45 @@ jobs:
         DATE="$(TZ="Asia/Shanghai" date +'%Y%m%d')"
         
         # 设置环境变量供后续步骤使用
-        echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
         echo "RELEASE_NAME=${KEYWORDS}_${DATE}" >> $GITHUB_ENV
         echo "SANITIZED_KEYWORDS=${SANITIZED_KEYWORDS}" >> $GITHUB_ENV
         
         # 打包整个data目录
         if [ -d "data" ]; then
-          # 使用-UN=UTF8选项确保zip包支持中文
-          zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
-          echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
+          # 计算data目录大小（字节）
+          DATA_SIZE=$(du -sb data/ | cut -f1)
+          echo "data目录大小: $DATA_SIZE 字节"
+          
+          # 1.5GB = 1.5 * 1024 * 1024 * 1024 = 1610612736 字节
+          MAX_SIZE=1610612736
+          
+          if [ "$DATA_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "data目录超过1.5GB，将进行分卷压缩"
+            # 使用分卷压缩，每卷1.5GB（1500MB）
+            zip -r -UN=UTF8 -s 1500m "${DATE}_${{ github.run_id }}" data/
+            echo "已创建分卷压缩文件"
+            
+            # 获取所有分卷文件名
+            PART_FILES=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | tr '\n' ' ')
+            echo "PART_FILES=$PART_FILES" >> $GITHUB_ENV
+            echo "PACKAGE_COUNT=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | wc -l)" >> $GITHUB_ENV
+            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.z01" >> $GITHUB_ENV
+          else
+            echo "data目录未超过1.5GB，进行普通压缩"
+            # 使用-UN=UTF8选项确保zip包支持中文
+            zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
+            echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
+            echo "PART_FILES=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+            echo "PACKAGE_COUNT=1" >> $GITHUB_ENV
+            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+          fi
+          
           echo "文件内容:"
-          unzip -l "${DATE}_${{ github.run_id }}.zip"
+          ls -la "${DATE}_${{ github.run_id }}"* 2>/dev/null || ls -la "${DATE}_${{ github.run_id }}.zip" 2>/dev/null
         else
           echo "警告: data 目录不存在"
+          echo "PART_FILES=" >> $GITHUB_ENV
+          echo "PACKAGE_COUNT=0" >> $GITHUB_ENV
         fi
 
     - name: Read markdown content for release
@@ -189,7 +215,9 @@ jobs:
       uses: softprops/action-gh-release@v2.1.0
       with:
         tag_name: Comments-${{ github.run_id }}  # 使用唯一的run_id
-        files: ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
+        files: |
+          ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
+          ${{ github.workspace }}/${{ env.PART_FILES }}
         token: ${{ secrets.GITHUB_TOKEN }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

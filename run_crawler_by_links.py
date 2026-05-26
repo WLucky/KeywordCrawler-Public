@@ -36,31 +36,50 @@ class Unbuffered:
 sys.stdout = Unbuffered(sys.stdout)
 
 
-def update_config_for_links(video_links_str, max_comments, enable_sub_comments):
+def update_config_for_links(platform, video_links_str, max_comments, enable_sub_comments, enable_video_download):
     """更新配置文件用于视频链接爬取"""
-
-    dy_config_file = 'config/dy_config.py'
-    with open(dy_config_file, 'r', encoding='utf-8') as f:
-        dy_content = f.read()
-
+    
     video_list = [link.strip() for link in video_links_str.split(';') if link.strip()]
-    new_list_str = ',\n    '.join([f'"{link}"' for link in video_list])
+    
+    if 'dy' in platform.lower():
+        dy_config_file = 'config/dy_config.py'
+        with open(dy_config_file, 'r', encoding='utf-8') as f:
+            dy_content = f.read()
 
-    pattern = r'DY_SPECIFIED_ID_LIST = \[.*?\]'
-    replacement = f'DY_SPECIFIED_ID_LIST = [\n    {new_list_str},\n]'
-    dy_content = re.sub(pattern, replacement, dy_content, flags=re.DOTALL)
+        new_list_str = ',\n    '.join([f'"{link}"' for link in video_list])
 
-    with open(dy_config_file, 'w', encoding='utf-8') as f:
-        f.write(dy_content)
+        pattern = r'DY_SPECIFIED_ID_LIST = \[.*?\]'
+        replacement = f'DY_SPECIFIED_ID_LIST = [\n    {new_list_str},\n]'
+        dy_content = re.sub(pattern, replacement, dy_content, flags=re.DOTALL)
 
-    print(f'已更新DY_SPECIFIED_ID_LIST，共 {len(video_list)} 个视频链接')
+        dy_content = re.sub(r'ENABLE_DY_VIDEO_DOWNLOAD = \w+', f'ENABLE_DY_VIDEO_DOWNLOAD = {enable_video_download}', dy_content)
+
+        with open(dy_config_file, 'w', encoding='utf-8') as f:
+            f.write(dy_content)
+
+        print(f'已更新DY_SPECIFIED_ID_LIST，共 {len(video_list)} 个视频链接')
+
+    if 'bili' in platform.lower():
+        bili_config_file = 'config/bilibili_config.py'
+        with open(bili_config_file, 'r', encoding='utf-8') as f:
+            bili_content = f.read()
+
+        new_list_str = ',\n    '.join([f'"{link}"' for link in video_list])
+
+        pattern = r'(BILI_SPECIFIED_ID_LIST = \[)\s*[\s\S]*?(\])'
+        replacement = rf'\1\n    {new_list_str},\n\2'
+        bili_content = re.sub(pattern, replacement, bili_content)
+
+        with open(bili_config_file, 'w', encoding='utf-8') as f:
+            f.write(bili_content)
+
+        print(f'已更新BILI_SPECIFIED_ID_LIST，共 {len(video_list)} 个视频链接')
 
     base_config_file = 'config/base_config.py'
     with open(base_config_file, 'r', encoding='utf-8') as f:
         base_content = f.read()
 
-    base_content = base_content.replace(f'PLATFORM = "xhs"', 'PLATFORM = "dy"')
-    base_content = base_content.replace('PLATFORM = "bili"', 'PLATFORM = "dy"')
+    base_content = re.sub(r'PLATFORM = ".*"', f'PLATFORM = "{platform.split(",")[0]}"', base_content)
 
     base_content = re.sub(
         r'(CRAWLER_TYPE = \(\s*)"search"',
@@ -71,12 +90,14 @@ def update_config_for_links(video_links_str, max_comments, enable_sub_comments):
     base_content = re.sub(r'CRAWLER_MAX_NOTES_COUNT = \d+', f'CRAWLER_MAX_NOTES_COUNT = {max_comments}', base_content)
     base_content = re.sub(r'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = \d+', f'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = {max_comments}', base_content)
     base_content = re.sub(r'ENABLE_GET_SUB_COMMENTS = \w+', f'ENABLE_GET_SUB_COMMENTS = {enable_sub_comments}', base_content)
+    base_content = re.sub(r'ENABLE_GET_MEIDAS = \w+', f'ENABLE_GET_MEIDAS = {enable_video_download}', base_content)
 
     with open(base_config_file, 'w', encoding='utf-8') as f:
         f.write(base_content)
 
-    print(f'已更新配置: PLATFORM=dy, CRAWLER_TYPE=detail')
+    print(f'已更新配置: PLATFORM={platform}, CRAWLER_TYPE=detail')
     print(f'评论数量: {max_comments}, 二级评论: {enable_sub_comments}')
+    print(f'视频下载: {enable_video_download}')
 
 
 def get_platform_name(platform):
@@ -155,27 +176,25 @@ def generate_video_download_markdown(platforms, keywords):
 
         content_files = []
         platform_name = get_platform_name(platform)
+        platform_full_names = {
+            'dy': 'douyin',
+            'bili': 'bilibili',
+            'xhs': 'xiaohongshu',
+            'ks': 'kuaishou',
+            'wb': 'weibo'
+        }
 
         csv_dir = data_dir / 'csv'
         if csv_dir.exists():
             for ext in ['csv']:
                 content_files.extend(list(csv_dir.glob(f'*{platform}*contents*.{ext}')))
                 content_files.extend(list(csv_dir.glob(f'*{platform_name}*contents*.{ext}')))
-                platform_full_names = {
-                    'dy': 'douyin',
-                    'bili': 'bilibili',
-                    'xhs': 'xiaohongshu',
-                    'ks': 'kuaishou',
-                    'wb': 'weibo'
-                }
                 if platform in platform_full_names:
                     content_files.extend(list(csv_dir.glob(f'*{platform_full_names[platform]}*contents*.{ext}')))
 
-        # 搜索路径：data/xlsx/ 目录（全局XLSX存储）
         xlsx_dir = data_dir / 'xlsx'
         if xlsx_dir.exists():
             for ext in ['xlsx']:
-                # 匹配 xlsx 文件命名格式: {platform}_{crawler_type}_{timestamp}.xlsx
                 content_files.extend(list(xlsx_dir.glob(f'{platform}_*.{ext}')))
                 content_files.extend(list(xlsx_dir.glob(f'{platform_name}_*.{ext}')))
                 if platform in platform_full_names:
@@ -279,42 +298,181 @@ def generate_video_download_markdown(platforms, keywords):
     print(f"\n已生成视频下载链接markdown文件: {markdown_filename}")
 
 
-def run_crawler_by_links(video_links, max_comments, enable_sub_comments):
+def generate_config_json():
+    """自动生成 data/config.json 配置文件"""
+    data_dir = Path('data')
+
+    platform_templates = {
+        'dy': {
+            'xlsx_sheets': ["content", "comments"],
+            'video_naming_pattern': "dy_{video_id}.mp4"
+        },
+        'bili': {
+            'xlsx_sheets': ["content", "comments"],
+            'video_naming_pattern': "bili_{video_id}.mp4"
+        },
+        'tavily': {
+            'xlsx_sheets': ["content"],
+            'image_storage_path': "data/images"
+        }
+    }
+
+    platforms_data = {}
+
+    xlsx_dir = data_dir / 'xlsx'
+    if xlsx_dir.exists():
+        for xlsx_file in xlsx_dir.glob('*.xlsx'):
+            filename = xlsx_file.name
+            if filename.startswith('douyin'):
+                if 'dy' not in platforms_data:
+                    platforms_data['dy'] = {'xlsx': [], 'video_files': []}
+                platforms_data['dy']['xlsx'].append(filename)
+            elif filename.startswith('bilibili'):
+                if 'bili' not in platforms_data:
+                    platforms_data['bili'] = {'xlsx': [], 'video_files': []}
+                platforms_data['bili']['xlsx'].append(filename)
+            elif filename.startswith('tavily'):
+                if 'tavily' not in platforms_data:
+                    platforms_data['tavily'] = {'xlsx': [], 'image_files': []}
+                platforms_data['tavily']['xlsx'].append(filename)
+
+    video_dir = data_dir / 'video'
+    if video_dir.exists():
+        for video_file in video_dir.glob('*.mp4'):
+            filename = video_file.name
+            if filename.startswith('dy_'):
+                if 'dy' not in platforms_data:
+                    platforms_data['dy'] = {'xlsx': [], 'video_files': []}
+                if 'video_files' not in platforms_data['dy']:
+                    platforms_data['dy']['video_files'] = []
+                platforms_data['dy']['video_files'].append(filename)
+            elif filename.startswith('bili_'):
+                if 'bili' not in platforms_data:
+                    platforms_data['bili'] = {'xlsx': [], 'video_files': []}
+                if 'video_files' not in platforms_data['bili']:
+                    platforms_data['bili']['video_files'] = []
+                platforms_data['bili']['video_files'].append(filename)
+
+    images_dir = data_dir / 'images'
+    has_images = False
+    if images_dir.exists():
+        image_files = []
+        for ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+            image_files.extend([f.name for f in images_dir.glob(f'*.{ext}')])
+        if image_files:
+            has_images = True
+            if 'tavily' not in platforms_data:
+                platforms_data['tavily'] = {'xlsx': [], 'image_files': []}
+            platforms_data['tavily']['image_files'] = image_files
+
+    platforms_detail = {}
+    platforms_list = []
+
+    for platform, data in platforms_data.items():
+        template = platform_templates.get(platform, {})
+        detail = {}
+
+        if data.get('xlsx'):
+            detail['xlsx'] = data['xlsx']
+            detail['xlsx_sheets'] = template.get('xlsx_sheets', ["content"])
+
+        if data.get('video_files'):
+            detail['video'] = {
+                "enabled": True,
+                "storage_path": "data/video",
+                "naming_pattern": template.get('video_naming_pattern', f"{platform}_{{video_id}}.mp4"),
+                "files": data['video_files']
+            }
+
+        if data.get('image_files'):
+            detail['image'] = {
+                "enabled": True,
+                "storage_path": "data/images",
+                "files": data['image_files']
+            }
+
+        if detail:
+            platforms_detail[platform] = detail
+            platforms_list.append(platform)
+
+    directories = {
+        "xlsx": "data/xlsx",
+        "video": "data/video",
+        "video_config": "data/video/video_config.json"
+    }
+    
+    if has_images:
+        directories["images"] = "data/images"
+        directories["image_config"] = "data/images/image_config.json"
+
+    config_data = {
+        "generated_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "platforms": platforms_list,
+        "directories": directories,
+        "platforms_detail": platforms_detail
+    }
+
+    config_path = data_dir / 'config.json'
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(config_data, f, ensure_ascii=False, indent=2)
+
+    print(f"已生成配置文件: {config_path}")
+    return config_data
+
+
+def run_crawler_by_links(platform, video_links, max_comments, enable_sub_comments, enable_video_download):
     """通过视频链接运行爬虫"""
     print(f'=========================================')
-    print(f'开始爬取抖音视频评论')
+    print(f'开始爬取视频评论')
+    print(f'平台: {platform}')
     print(f'视频链接数量: {len(video_links.split(";"))}')
     print(f'评论数量: {max_comments}')
     print(f'二级评论: {enable_sub_comments}')
+    print(f'视频下载: {enable_video_download}')
     print(f'=========================================')
 
-    update_config_for_links(video_links, max_comments, enable_sub_comments)
+    platforms = [p.strip() for p in platform.split(',')]
 
-    print("开始爬取指定视频链接...")
-    try:
-        exit_code = os.system('python main.py')
-        if exit_code != 0:
-            print(f'警告: 爬虫退出码为 {exit_code}')
-    except Exception as e:
-        print(f'爬虫执行异常: {str(e)}')
+    for p in platforms:
+        print(f"\n--- 处理平台: {get_platform_name(p)} ---")
+        
+        update_config_for_links(p, video_links, max_comments, enable_sub_comments, enable_video_download)
+
+        print("开始爬取指定视频链接...")
+        try:
+            exit_code = os.system('python main.py')
+            if exit_code != 0:
+                print(f'警告: 爬虫退出码为 {exit_code}')
+        except Exception as e:
+            print(f'爬虫执行异常: {str(e)}')
+
+        time.sleep(2)
 
     try:
-        generate_video_download_markdown(['dy'], '抖音视频链接')
+        generate_video_download_markdown(platforms, '视频链接')
     except Exception as e:
         print(f'生成markdown异常: {str(e)}')
 
+    try:
+        generate_config_json()
+    except Exception as e:
+        print(f'生成config.json异常: {str(e)}')
+
 
 def main():
-    if len(sys.argv) < 4:
-        print('用法: python run_crawler_by_links.py <video_links> <max_comments> <enable_sub_comments>')
-        print('示例: python run_crawler_by_links.py "https://www.douyin.com/video/123456" 20 true')
+    if len(sys.argv) < 5:
+        print('用法: python run_crawler_by_links.py <platform> <video_links> <max_comments> <enable_sub_comments> [enable_video_download]')
+        print('示例: python run_crawler_by_links.py "dy" "https://www.douyin.com/video/123456" 20 true true')
+        print('平台选项: dy, bili')
         sys.exit(1)
 
-    video_links = sys.argv[1]
-    max_comments = int(sys.argv[2])
-    enable_sub_comments = sys.argv[3].lower() == 'true'
+    platform = sys.argv[1]
+    video_links = sys.argv[2]
+    max_comments = int(sys.argv[3])
+    enable_sub_comments = sys.argv[4].lower() == 'true'
+    enable_video_download = sys.argv[5].lower() == 'true' if len(sys.argv) > 5 else True
 
-    run_crawler_by_links(video_links, max_comments, enable_sub_comments)
+    run_crawler_by_links(platform, video_links, max_comments, enable_sub_comments, enable_video_download)
 
 
 if __name__ == '__main__':
