@@ -217,7 +217,7 @@ jobs:
         tag_name: Comments-${{ github.run_id }}  # 使用唯一的run_id
         files: |
           ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
-          ${{ github.workspace }}/${{ env.PART_FILES }}
+          ${{ github.workspace }}/${{ env.PART_FILES.split(' ') }}
         token: ${{ secrets.GITHUB_TOKEN }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
