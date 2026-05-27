@@ -212,7 +212,9 @@ jobs:
       uses: softprops/action-gh-release@v2.1.0
       with:
         tag_name: Comments-${{ github.run_id }}  # 使用唯一的run_id
-        files: ${{ github.workspace }}/files.txt
+        files: |
+           ${{ github.workspace }}/${DATE}_${{ github.run_id }}.zip
+           ${{ github.workspace }}/${DATE}_${{ github.run_id }}.z*
         token: ${{ secrets.GITHUB_TOKEN }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
