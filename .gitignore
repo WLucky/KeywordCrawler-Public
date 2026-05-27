@@ -179,3 +179,7 @@ agent_zone
 debug_tools
 
 database/*.db
+
+# Cookie files (sensitive information)
+config/cookies/*_cookie.txt
+!config/cookies/*_cookie.txt.example
