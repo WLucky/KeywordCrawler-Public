@@ -96,27 +96,22 @@ jobs:
             zip -r -UN=UTF8 -s 1500m "${DATE}_${{ github.run_id }}" data/
             echo "已创建分卷压缩文件"
             
-            # 获取所有分卷文件名
-            PART_FILES=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | tr '\n' ' ')
-            echo "PART_FILES=$PART_FILES" >> $GITHUB_ENV
-            echo "PACKAGE_COUNT=$(ls "${DATE}_${{ github.run_id }}".z* 2>/dev/null | wc -l)" >> $GITHUB_ENV
-            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.z01" >> $GITHUB_ENV
+            # 生成文件列表，每行一个文件
+            ls "${DATE}_${{ github.run_id }}".z* > files.txt
+            echo "FILE_LIST=files.txt" >> $GITHUB_ENV
           else
             echo "data目录未超过1.5GB，进行普通压缩"
             # 使用-UN=UTF8选项确保zip包支持中文
             zip -r -UN=UTF8 "${DATE}_${{ github.run_id }}.zip" data/
-            echo "已创建打包文件: ${DATE}_${{ github.run_id }}.zip"
-            echo "PART_FILES=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
-            echo "PACKAGE_COUNT=1" >> $GITHUB_ENV
-            echo "PACKAGE_NAME=${DATE}_${{ github.run_id }}.zip" >> $GITHUB_ENV
+            # 单个文件
+            echo "${DATE}_${{ github.run_id }}.zip" > files.txt
+            echo "FILE_LIST=files.txt" >> $GITHUB_ENV
           fi
           
           echo "文件内容:"
           ls -la "${DATE}_${{ github.run_id }}"* 2>/dev/null || ls -la "${DATE}_${{ github.run_id }}.zip" 2>/dev/null
         else
           echo "警告: data 目录不存在"
-          echo "PART_FILES=" >> $GITHUB_ENV
-          echo "PACKAGE_COUNT=0" >> $GITHUB_ENV
         fi
 
     - name: Read markdown content for release
@@ -166,9 +161,7 @@ jobs:
       uses: softprops/action-gh-release@v2.1.0
       with:
         tag_name: VideoLinks-${{ github.run_id }}
-        files: |
-          ${{ github.workspace }}/${{ env.PACKAGE_NAME }}
-          ${{ github.workspace }}/${{ env.PART_FILES }}
+        files: ${{ github.workspace }}/*_${{ github.run_id }}.z*
         token: ${{ secrets.GITHUB_TOKEN }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

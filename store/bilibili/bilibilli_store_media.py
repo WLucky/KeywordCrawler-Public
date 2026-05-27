@@ -109,11 +109,14 @@ class BilibiliVideo(AbstractStoreVideo):
         Returns:
 
         """
-        pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
-        save_file_name = self.make_save_file_name(str(aid), extension_file_name)
-        async with aiofiles.open(save_file_name, 'wb') as f:
-            await f.write(video_content)
-            utils.logger.info(f"[BilibiliVideoImplement.save_video] save save_video {save_file_name} success ...")
+        try:
+            pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
+            save_file_name = self.make_save_file_name(str(aid), extension_file_name)
+            async with aiofiles.open(save_file_name, 'wb') as f:
+                await f.write(video_content)
+                utils.logger.info(f"[BilibiliVideoImplement.save_video] save save_video {save_file_name} success ...")
 
-        # 更新视频配置文件
-        self._update_video_config(str(aid), f"bili_{aid}.mp4")
+            # 更新视频配置文件
+            self._update_video_config(str(aid), f"bili_{aid}.mp4")
+        except Exception as e:
+            utils.logger.error(f"[BilibiliVideoImplement.save_video] Failed to save video: {e}")

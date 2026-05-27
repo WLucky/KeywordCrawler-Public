@@ -500,25 +500,32 @@ class DouYinCrawler(AbstractCrawler):
         Args:
             aweme_item (Dict): 抖音作品详情
         """
-        if not config.ENABLE_GET_MEIDAS:
-            return
-        aweme_id = aweme_item.get("aweme_id")
-        # List of note urls. If it is a short video type, an empty list will be returned.
-        note_download_url: List[str] = douyin_store._extract_note_image_list(aweme_item)
+        try:
+            if not config.ENABLE_GET_MEIDAS:
+                return
+            aweme_id = aweme_item.get("aweme_id")
+            # List of note urls. If it is a short video type, an empty list will be returned.
+            note_download_url: List[str] = douyin_store._extract_note_image_list(aweme_item)
 
-        if not note_download_url:
-            return
-        picNum = 0
-        for url in note_download_url:
-            if not url:
-                continue
-            content = await self.dy_client.get_aweme_media(url)
-            await asyncio.sleep(random.random())
-            if content is None:
-                continue
-            extension_file_name = f"{picNum:>03d}.jpeg"
-            picNum += 1
-            await douyin_store.update_dy_aweme_image(aweme_id, content, extension_file_name)
+            if not note_download_url:
+                return
+            picNum = 0
+            for url in note_download_url:
+                try:
+                    if not url:
+                        continue
+                    content = await self.dy_client.get_aweme_media(url)
+                    await asyncio.sleep(random.random())
+                    if content is None:
+                        continue
+                    extension_file_name = f"{picNum:>03d}.jpeg"
+                    picNum += 1
+                    await douyin_store.update_dy_aweme_image(aweme_id, content, extension_file_name)
+                except Exception as e:
+                    utils.logger.error(f"[DouYinCrawler.get_aweme_images] Failed to download image {url}: {e}")
+                    continue
+        except Exception as e:
+            utils.logger.error(f"[DouYinCrawler.get_aweme_images] Failed to process images: {e}")
 
     async def get_aweme_video(self, aweme_item: Dict):
         """
@@ -527,21 +534,24 @@ class DouYinCrawler(AbstractCrawler):
         Args:
             aweme_item (Dict): 抖音作品详情
         """
-        if not config.ENABLE_GET_MEIDAS:
-            return
-        if not getattr(config, 'ENABLE_DY_VIDEO_DOWNLOAD', True):
-            utils.logger.info(f"[DouYinCrawler.get_aweme_video] Douyin video download is disabled")
-            return
-        aweme_id = aweme_item.get("aweme_id")
+        try:
+            if not config.ENABLE_GET_MEIDAS:
+                return
+            if not getattr(config, 'ENABLE_DY_VIDEO_DOWNLOAD', True):
+                utils.logger.info(f"[DouYinCrawler.get_aweme_video] Douyin video download is disabled")
+                return
+            aweme_id = aweme_item.get("aweme_id")
 
-        # The video URL will always exist, but when it is a short video type, the file is actually an audio file.
-        video_download_url: str = douyin_store._extract_video_download_url(aweme_item)
+            # The video URL will always exist, but when it is a short video type, the file is actually an audio file.
+            video_download_url: str = douyin_store._extract_video_download_url(aweme_item)
 
-        if not video_download_url:
-            return
-        content = await self.dy_client.get_aweme_media(video_download_url)
-        await asyncio.sleep(random.random())
-        if content is None:
-            return
-        extension_file_name = f"video.mp4"
-        await douyin_store.update_dy_aweme_video(aweme_id, content, extension_file_name)
+            if not video_download_url:
+                return
+            content = await self.dy_client.get_aweme_media(video_download_url)
+            await asyncio.sleep(random.random())
+            if content is None:
+                return
+            extension_file_name = f"video.mp4"
+            await douyin_store.update_dy_aweme_video(aweme_id, content, extension_file_name)
+        except Exception as e:
+            utils.logger.error(f"[DouYinCrawler.get_aweme_video] Failed to download video: {e}")

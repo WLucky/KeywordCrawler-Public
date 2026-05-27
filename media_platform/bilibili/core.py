@@ -584,35 +584,38 @@ class BilibiliCrawler(AbstractCrawler):
         :param semaphore:
         :return:
         """
-        if not config.ENABLE_GET_MEIDAS:
-            utils.logger.info(f"[BilibiliCrawler.get_bilibili_video] Crawling image mode is not enabled")
-            return
-        video_item_view: Dict = video_item.get("View")
-        aid = video_item_view.get("aid")
-        cid = video_item_view.get("cid")
-        result = await self.get_video_play_url_task(aid, cid, semaphore)
-        if result is None:
-            utils.logger.info("[BilibiliCrawler.get_bilibili_video] get video play url failed")
-            return
-        durl_list = result.get("durl")
-        max_size = -1
-        video_url = ""
-        for durl in durl_list:
-            size = durl.get("size")
-            if size > max_size:
-                max_size = size
-                video_url = durl.get("url")
-        if video_url == "":
-            utils.logger.info("[BilibiliCrawler.get_bilibili_video] get video url failed")
-            return
+        try:
+            if not config.ENABLE_GET_MEIDAS:
+                utils.logger.info(f"[BilibiliCrawler.get_bilibili_video] Crawling image mode is not enabled")
+                return
+            video_item_view: Dict = video_item.get("View")
+            aid = video_item_view.get("aid")
+            cid = video_item_view.get("cid")
+            result = await self.get_video_play_url_task(aid, cid, semaphore)
+            if result is None:
+                utils.logger.info("[BilibiliCrawler.get_bilibili_video] get video play url failed")
+                return
+            durl_list = result.get("durl")
+            max_size = -1
+            video_url = ""
+            for durl in durl_list:
+                size = durl.get("size")
+                if size > max_size:
+                    max_size = size
+                    video_url = durl.get("url")
+            if video_url == "":
+                utils.logger.info("[BilibiliCrawler.get_bilibili_video] get video url failed")
+                return
 
-        content = await self.bili_client.get_video_media(video_url)
-        await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
-        utils.logger.info(f"[BilibiliCrawler.get_bilibili_video] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after fetching video {aid}")
-        if content is None:
-            return
-        extension_file_name = f"video.mp4"
-        await bilibili_store.store_video(aid, content, extension_file_name)
+            content = await self.bili_client.get_video_media(video_url)
+            await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+            utils.logger.info(f"[BilibiliCrawler.get_bilibili_video] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after fetching video {aid}")
+            if content is None:
+                return
+            extension_file_name = f"video.mp4"
+            await bilibili_store.store_video(aid, content, extension_file_name)
+        except Exception as e:
+            utils.logger.error(f"[BilibiliCrawler.get_bilibili_video] Failed to download video: {e}")
 
     async def get_all_creator_details(self, creator_url_list: List[str]):
         """

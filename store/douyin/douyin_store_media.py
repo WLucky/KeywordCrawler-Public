@@ -72,11 +72,14 @@ class DouYinImage(AbstractStoreImage):
         Returns:
 
         """
-        pathlib.Path(self.image_store_path + "/" + aweme_id).mkdir(parents=True, exist_ok=True)
-        save_file_name = self.make_save_file_name(aweme_id, extension_file_name)
-        async with aiofiles.open(save_file_name, 'wb') as f:
-            await f.write(pic_content)
-            utils.logger.info(f"[DouYinImageStoreImplement.save_image] save image {save_file_name} success ...")
+        try:
+            pathlib.Path(self.image_store_path + "/" + aweme_id).mkdir(parents=True, exist_ok=True)
+            save_file_name = self.make_save_file_name(aweme_id, extension_file_name)
+            async with aiofiles.open(save_file_name, 'wb') as f:
+                await f.write(pic_content)
+                utils.logger.info(f"[DouYinImageStoreImplement.save_image] save image {save_file_name} success ...")
+        except Exception as e:
+            utils.logger.error(f"[DouYinImageStoreImplement.save_image] Failed to save image: {e}")
 
 
 class DouYinVideo(AbstractStoreVideo):
@@ -154,10 +157,13 @@ class DouYinVideo(AbstractStoreVideo):
         Returns:
 
         """
-        pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
-        save_file_name = self.make_save_file_name(aweme_id, extension_file_name)
-        async with aiofiles.open(save_file_name, 'wb') as f:
-            await f.write(video_content)
-            utils.logger.info(f"[DouYinVideoStoreImplement.save_video] save video {save_file_name} success ...")
+        try:
+            pathlib.Path(self.video_store_path).mkdir(parents=True, exist_ok=True)
+            save_file_name = self.make_save_file_name(aweme_id, extension_file_name)
+            async with aiofiles.open(save_file_name, 'wb') as f:
+                await f.write(video_content)
+                utils.logger.info(f"[DouYinVideoStoreImplement.save_video] save video {save_file_name} success ...")
 
-        self._update_video_config(aweme_id, f"dy_{aweme_id}.mp4")
+            self._update_video_config(aweme_id, f"dy_{aweme_id}.mp4")
+        except Exception as e:
+            utils.logger.error(f"[DouYinVideoStoreImplement.save_video] Failed to save video: {e}")

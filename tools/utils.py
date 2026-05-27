@@ -26,13 +26,43 @@ from .slider_util import *
 from .time_util import *
 
 
+import os
+import pathlib
+
 def init_loging_config():
     level = logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(name)s %(levelname)s (%(filename)s:%(lineno)d) - %(message)s",
+    
+    # 创建日志格式化器
+    formatter = logging.Formatter(
+        "%(asctime)s %(name)s %(levelname)s (%(filename)s:%(lineno)d) - %(message)s",
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+    
+    # 获取根logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # 清除默认处理器
+    root_logger.handlers = []
+    
+    # 控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    # 文件处理器 - 保存到data目录
+    log_dir = pathlib.Path("data")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "mediacrawler.log"
+    
+    file_handler = logging.FileHandler(
+        log_file,
+        encoding='utf-8',
+        mode='a'
+    )
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    
     _logger = logging.getLogger("MediaCrawler")
     _logger.setLevel(level)
 
