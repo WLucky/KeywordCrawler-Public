@@ -23,6 +23,7 @@ from config import (
 )
 from tools.async_file_writer import AsyncFileWriter
 from tools import utils
+from tools.time_util import get_china_current_time
 
 
 def is_result_in_time_range(published_date: str, target_days: int) -> bool:
@@ -280,9 +281,8 @@ class TavilyCrawler(AbstractCrawler):
         return ext
     
     def _get_current_time(self) -> str:
-        """获取当前时间字符串"""
-        from datetime import datetime
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """获取当前时间字符串（中国时区）"""
+        return get_china_current_time()
     
     async def _save_image_config(self):
         """保存图片配置文件"""

@@ -46,6 +46,7 @@ except ImportError:
 
 from base.base_crawler import AbstractStore
 from tools import utils
+from tools.time_util import get_china_current_timestamp
 import config
 
 
@@ -138,8 +139,8 @@ class ExcelStoreBase(AbstractStore):
         self.contacts_sheet = None
         self.dynamics_sheet = None
 
-        # Generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Generate filename (use China timezone)
+        timestamp = get_china_current_timestamp()
         self.filename = self.data_dir / f"{platform}_{crawler_type}_{timestamp}.xlsx"
 
         utils.logger.info(f"[ExcelStoreBase] Initialized Excel export to: {self.filename}")

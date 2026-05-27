@@ -126,6 +126,36 @@ def rfc2822_to_timestamp(rfc2822_time):
     return timestamp
 
 
+def get_china_current_time() -> str:
+    """
+    Get current time in China timezone (UTC+8): '2023-12-02 13:01:23'
+    :return: Formatted time string in China timezone
+    """
+    china_tz = timezone(timedelta(hours=8))
+    china_time = datetime.now(china_tz)
+    return china_time.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def get_china_current_date() -> str:
+    """
+    Get current date in China timezone (UTC+8): '2023-12-02'
+    :return: Formatted date string in China timezone
+    """
+    china_tz = timezone(timedelta(hours=8))
+    china_time = datetime.now(china_tz)
+    return china_time.strftime('%Y-%m-%d')
+
+
+def get_china_current_timestamp() -> str:
+    """
+    Get current timestamp in China timezone for filename: '20231202_130123'
+    :return: Formatted timestamp string in China timezone
+    """
+    china_tz = timezone(timedelta(hours=8))
+    china_time = datetime.now(china_tz)
+    return china_time.strftime('%Y%m%d_%H%M%S')
+
+
 if __name__ == '__main__':
     # Example usage
     _rfc2822_time = "Sat Dec 23 17:12:54 +0800 2023"

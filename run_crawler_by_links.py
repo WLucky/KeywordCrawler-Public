@@ -15,6 +15,7 @@ except ImportError:
     EXCEL_AVAILABLE = False
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tools.time_util import get_china_current_time
 
 
 class Unbuffered:
@@ -163,7 +164,7 @@ def generate_video_download_markdown(platforms, keywords):
     data_dir.mkdir(exist_ok=True)
     markdown_lines = []
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = get_china_current_time()
     markdown_lines.append(f"# 视频下载链接汇总")
     markdown_lines.append(f"")
     markdown_lines.append(f"**搜索关键词**: {keywords}")
