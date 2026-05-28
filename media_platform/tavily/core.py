@@ -19,7 +19,8 @@ from base.base_crawler import AbstractCrawler
 from config import (
     PLATFORM, KEYWORDS, TAVILY_API_KEY, SEARCH_DEPTH, MAX_RESULTS,
     CHUNKS_PER_SOURCE, INCLUDE_DOMAINS, CURRENT_TIME_RANGE,
-    ENABLE_TIMESTAMP_FILTER, TARGET_TIME_RANGE_DAYS, TIMESTAMP_FILTER_MULTIPLIER
+    ENABLE_TIMESTAMP_FILTER, TARGET_TIME_RANGE_DAYS, TIMESTAMP_FILTER_MULTIPLIER,
+    SEARCH_COUNTRY
 )
 from tools.async_file_writer import AsyncFileWriter
 from tools import utils
@@ -83,6 +84,7 @@ class TavilyCrawler(AbstractCrawler):
         self.chunks_per_source = CHUNKS_PER_SOURCE
         self.include_domains = INCLUDE_DOMAINS
         self.time_range = CURRENT_TIME_RANGE
+        self.search_country = SEARCH_COUNTRY
         self.file_writer = AsyncFileWriter(
             platform=self.platform,
             crawler_type="search",
@@ -95,6 +97,7 @@ class TavilyCrawler(AbstractCrawler):
         print(f"[Tavily] 开始搜索关键词: {self.keywords}")
         print(f"[Tavily] 时间范围: {self.time_range}")
         print(f"[Tavily] 包含域名: {self.include_domains}")
+        print(f"[Tavily] 搜索国家/地区: {self.search_country}")
         
         # 如果启用时间戳过滤且有目标时间范围，需要增大搜索结果数量
         search_max_results = self.max_results
@@ -118,6 +121,22 @@ class TavilyCrawler(AbstractCrawler):
             
             if self.time_range:
                 search_params["time_range"] = self.time_range
+            
+            if self.search_country:
+                search_params["search_depth"] = self.search_depth
+                search_params["include_answer"] = False
+                search_params["include_raw_content"] = False
+                search_params["max_tokens"] = 1000
+                
+                # 使用 tavily 的搜索国家参数
+                try:
+                    search_params["country"] = self.search_country
+                except:
+                    # 某些版本的 tavily 库可能使用不同的参数名
+                    try:
+                        search_params["search_country"] = self.search_country
+                    except:
+                        pass
             
             response = client.search(**search_params)
             

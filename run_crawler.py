@@ -173,11 +173,15 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
 
         # 更新MAX_IMAGES_PER_RESULT
         tavily_content = re.sub(r'MAX_IMAGES_PER_RESULT = \d+', f'MAX_IMAGES_PER_RESULT = {max_images_per_result}', tavily_content)
+        
+        # 更新SEARCH_COUNTRY（默认为"cn"表示中国）
+        tavily_content = re.sub(r'SEARCH_COUNTRY = ["\'][^"\']*["\']', 'SEARCH_COUNTRY = "cn"', tavily_content)
 
         with open(tavily_config_file, 'w', encoding='utf-8') as f:
             f.write(tavily_content)
 
         print(f'已更新Tavily时间范围为: {tavily_time_range}')
+        print(f'已更新Tavily搜索国家为: cn')
         if time_type > 0:
             print(f'提示: Tavily将通过时间戳过滤实现{time_type}天的时间范围控制')
         print(f'已更新Tavily图片下载为: {enable_tavily_img}')

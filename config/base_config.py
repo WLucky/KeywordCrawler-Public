@@ -24,7 +24,7 @@ PLATFORM = "tavily"  # Platform, xhs | dy | ks | bili | wb | tieba | zhihu | tav
 # 开启后 API 走 webapi.rednote.com，cookie 域使用 .rednote.com
 XHS_INTERNATIONAL = False
 
-KEYWORDS = "小米yu7 gt"  # Keyword search configuration, separated by English commas
+KEYWORDS = "中国科技"  # Keyword search configuration, separated by English commas
 LOGIN_TYPE = "cookie"  # qrcode or phone or cookie
 CRAWLER_TYPE = (
     "search"  # Crawling type, search (keyword search) | detail (post details) | creator (creator homepage data)
@@ -136,7 +136,7 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # Control the number of crawled videos/posts
-CRAWLER_MAX_NOTES_COUNT = 1
+CRAWLER_MAX_NOTES_COUNT = 10
 
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1
@@ -145,10 +145,10 @@ MAX_CONCURRENCY_NUM = 1
 ENABLE_GET_MEIDAS = True
 
 # Whether to enable comment crawling mode. Comment crawling is enabled by default.
-ENABLE_GET_COMMENTS = True
+ENABLE_GET_COMMENTS = False
 
 # Control the number of crawled first-level comments (single video/post)
-CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 3
+CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 0
 
 # Whether to enable the mode of crawling second-level comments. By default, crawling of second-level comments is not enabled.
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
