@@ -101,10 +101,10 @@ class TavilyCrawler(AbstractCrawler):
         
         # 如果启用时间戳过滤且有目标时间范围，需要增大搜索结果数量
         search_max_results = self.max_results
-        if ENABLE_TIMESTAMP_FILTER and TARGET_TIME_RANGE_DAYS > 0:
-            search_max_results = int(self.max_results * TIMESTAMP_FILTER_MULTIPLIER)
-            print(f"[Tavily] 启用时间戳过滤，目标时间范围: {TARGET_TIME_RANGE_DAYS}天，搜索结果上限调整为: {search_max_results}")
-        
+
+                # if ENABLE_TIMESTAMP_FILTER and TARGET_TIME_RANGE_DAYS > 0:
+        #     search_max_results = int(self.max_results * TIMESTAMP_FILTER_MULTIPLIER)
+        #     print(f"[Tavily] 启用时间戳过滤，目标时间范围: {TARGET_TIME_RANGE_DAYS}天，搜索结果上限调整为: {search_max_results}")
         try:
             from tavily import TavilyClient
             
