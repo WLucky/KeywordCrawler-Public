@@ -120,7 +120,7 @@ jobs:
         export LC_ALL=C.UTF-8
         export LANG=C.UTF-8
         
-        MARKDOWN_FILE=$(find data -name "视频下载链接_*.md" 2>/dev/null | head -n 1)
+        MARKDOWN_FILE=$(find data -name "视频播放链接_*.md" 2>/dev/null | head -n 1)
         
         if [ -n "$MARKDOWN_FILE" ] && [ -f "$MARKDOWN_FILE" ]; then
           echo "找到markdown文件: $MARKDOWN_FILE"
@@ -143,15 +143,15 @@ jobs:
           
           点击下方附件下载完整数据包。
           
-          ### 视频下载链接汇总
+          ### 视频播放链接汇总
           
-          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频下载链接）' }}
+          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频播放链接）' }}
           
           ### 数据内容
           - 视频元数据
           - 视频评论数据
           - 创作者信息
-          - 视频下载链接汇总（Markdown格式）
+          - 视频播放链接汇总（Markdown格式）
           - 配置文件（config.json）
         draft: false
         prerelease: false

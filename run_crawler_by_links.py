@@ -90,6 +90,7 @@ def update_config_for_links(platform, video_links_str, max_comments, enable_sub_
 
     base_content = re.sub(r'CRAWLER_MAX_NOTES_COUNT = \d+', f'CRAWLER_MAX_NOTES_COUNT = {max_comments}', base_content)
     base_content = re.sub(r'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = \d+', f'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = {max_comments}', base_content)
+    base_content = re.sub(r'ENABLE_GET_COMMENTS = \w+', f'ENABLE_GET_COMMENTS = True', base_content)
     base_content = re.sub(r'ENABLE_GET_SUB_COMMENTS = \w+', f'ENABLE_GET_SUB_COMMENTS = {enable_sub_comments}', base_content)
     base_content = re.sub(r'ENABLE_GET_MEIDAS = \w+', f'ENABLE_GET_MEIDAS = {enable_video_download}', base_content)
 
@@ -98,7 +99,7 @@ def update_config_for_links(platform, video_links_str, max_comments, enable_sub_
 
     print(f'已更新配置: PLATFORM={platform}, CRAWLER_TYPE=detail')
     print(f'评论数量: {max_comments}, 二级评论: {enable_sub_comments}')
-    print(f'视频下载: {enable_video_download}')
+    print(f'视频下载: {enable_video_download}, 评论爬取: True')
 
 
 def get_platform_name(platform):
@@ -125,12 +126,12 @@ def extract_video_links(item, video_links, platform):
     title = None
 
     url_fields = [
-        'video_download_url',
         'video_url',
         'aweme_url',
         'video_play_url',
         'note_url',
         'content_url',
+        'video_download_url',
         'download_url'
     ]
 
@@ -165,7 +166,7 @@ def generate_video_download_markdown(platforms, keywords):
     markdown_lines = []
 
     timestamp = get_china_current_time()
-    markdown_lines.append(f"# 视频下载链接汇总")
+    markdown_lines.append(f"# 视频播放链接汇总")
     markdown_lines.append(f"")
     markdown_lines.append(f"**搜索关键词**: {keywords}")
     markdown_lines.append(f"**生成时间**: {timestamp}")
@@ -286,17 +287,17 @@ def generate_video_download_markdown(platforms, keywords):
                 markdown_lines.append(f"{idx}. [{display_title}]({url})")
 
         if not video_links:
-            markdown_lines.append(f"- 暂无视频下载链接")
+            markdown_lines.append(f"- 暂无视频播放链接")
 
         markdown_lines.append(f"")
 
     sanitized_keywords = keywords.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
-    markdown_filename = data_dir / f"视频下载链接_{sanitized_keywords}.md"
+    markdown_filename = data_dir / f"视频播放链接_{sanitized_keywords}.md"
 
     with open(markdown_filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(markdown_lines))
 
-    print(f"\n已生成视频下载链接markdown文件: {markdown_filename}")
+    print(f"\n已生成视频播放链接markdown文件: {markdown_filename}")
 
 
 def generate_config_json():
