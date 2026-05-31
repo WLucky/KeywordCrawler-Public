@@ -26,7 +26,7 @@ on:
         required: true
         default: '比亚迪'
       time_type:
-        description: '输入时间范围（天数），0表示不限'
+        description: '输入时间范围（天数），0表示不限，例如：0=全部时间，1=最近一天，7=最近一周，30=最近一个月，180=最近半年'
         required: true
         type: number
         default: 0
@@ -36,7 +36,7 @@ on:
         type: number
         default: 15
       max_comments:
-        description: '单视频评论数量'
+        description: '单视频评论采集上限'
         required: true
         type: number
         default: 8000
@@ -50,8 +50,8 @@ on:
         required: true
         type: boolean
         default: true
-      enable_dy_video_download:
-        description: '抖音视频下载'
+      enable_video_download:
+        description: '是否下载视频（抖音、B站统一控制）'
         required: true
         type: boolean
         default: true
@@ -110,9 +110,9 @@ jobs:
         MAX_COMMENTS="${{ github.event.inputs.max_comments }}"
         ENABLE_SUB_COMMENTS="${{ github.event.inputs.enable_sub_comments }}"
         ENABLE_TAVILY_IMG="${{ github.event.inputs.enable_tavily_img }}"
-        ENABLE_DY_VIDEO_DOWNLOAD="${{ github.event.inputs.enable_dy_video_download }}"
+        ENABLE_VIDEO_DOWNLOAD="${{ github.event.inputs.enable_video_download }}"
         MAX_IMAGES_PER_RESULT="${{ github.event.inputs.max_images_per_result }}"
-        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_TAVILY_IMG" "$MAX_IMAGES_PER_RESULT" "$ENABLE_DY_VIDEO_DOWNLOAD"
+        python run_crawler.py "$PLATFORMS" "$KEYWORDS" "$TIME_TYPE" "$MAX_NOTES" "$MAX_COMMENTS" "$ENABLE_SUB_COMMENTS" "$ENABLE_TAVILY_IMG" "$MAX_IMAGES_PER_RESULT" "$ENABLE_VIDEO_DOWNLOAD"
     - name: Package data files
       run: |
         # 设置LC_ALL为UTF-8以支持中文字符
@@ -171,7 +171,7 @@ jobs:
         export LANG=C.UTF-8
         
         # 查找markdown文件
-        MARKDOWN_FILE=$(find data -name "视频下载链接_*.md" 2>/dev/null | head -n 1)
+        MARKDOWN_FILE=$(find data -name "视频播放链接_*.md" 2>/dev/null | head -n 1)
         
         if [ -n "$MARKDOWN_FILE" ] && [ -f "$MARKDOWN_FILE" ]; then
           echo "找到markdown文件: $MARKDOWN_FILE"
@@ -195,15 +195,15 @@ jobs:
           
           点击下方附件下载完整数据包。
           
-          ### 视频下载链接汇总
+          ### 视频播放链接汇总
           
-          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频下载链接）' }}
+          ${{ steps.markdown.outputs.HAS_MARKDOWN == 'true' && fromJSON(steps.markdown.outputs.MARKDOWN_CONTENT) || '（暂无视频播放链接）' }}
           
           ### 数据内容
           - 各平台视频元数据
           - 视频评论数据
           - 创作者信息
-          - 视频下载链接汇总（Markdown格式）
+          - 视频播放链接汇总（Markdown格式）
         draft: false
         prerelease: false
       env:

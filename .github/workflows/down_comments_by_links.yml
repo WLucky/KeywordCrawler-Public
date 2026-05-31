@@ -19,7 +19,7 @@ on:
         required: true
         default: 'https://www.douyin.com/video/7525538910311632128;https://v.douyin.com/drIPtQ_WPWY/;7202432992642387233'
       max_comments:
-        description: '单视频评论数量'
+        description: '单视频评论采集上限'
         required: true
         type: number
         default: 8000

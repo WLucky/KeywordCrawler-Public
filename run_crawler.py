@@ -31,7 +31,7 @@ class Unbuffered:
 
 sys.stdout = Unbuffered(sys.stdout)
 
-def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_dy_video_download=True):
+def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_video_download=True):
     """更新配置文件中的PLATFORM和KEYWORDS"""
     config_file = 'config/base_config.py'
 
@@ -93,19 +93,21 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         dy_content = re.sub(r'TARGET_TIME_RANGE_DAYS = \d+', f'TARGET_TIME_RANGE_DAYS = {time_type}', dy_content)
 
         # 更新ENABLE_DY_VIDEO_DOWNLOAD
-        dy_content = re.sub(r'ENABLE_DY_VIDEO_DOWNLOAD = \w+', f'ENABLE_DY_VIDEO_DOWNLOAD = {enable_dy_video_download}', dy_content)
+        dy_content = re.sub(r'ENABLE_DY_VIDEO_DOWNLOAD = \w+', f'ENABLE_DY_VIDEO_DOWNLOAD = {enable_video_download}', dy_content)
 
         with open(dy_config_file, 'w', encoding='utf-8') as f:
             f.write(dy_content)
 
-        # 如果启用了抖音视频下载，同时启用媒体下载
-        if enable_dy_video_download:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-            content = re.sub(r'ENABLE_GET_MEIDAS = \w+', 'ENABLE_GET_MEIDAS = True', content)
-            with open(config_file, 'w', encoding='utf-8') as f:
-                f.write(content)
+        # 更新媒体下载配置
+        with open(config_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = re.sub(r'ENABLE_GET_MEIDAS = \w+', f'ENABLE_GET_MEIDAS = {enable_video_download}', content)
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+        if enable_video_download:
             print(f'已启用抖音视频下载，同时开启媒体下载模式')
+        else:
+            print(f'已禁用抖音视频下载，同时关闭媒体下载模式')
 
         print(f'已更新抖音时间类型为: {dy_time_type} (输入: {time_type}天)')
         if time_type > 0 and dy_time_type != time_type:
@@ -117,6 +119,10 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         bili_config_file = 'config/bilibili_config.py'
         with open(bili_config_file, 'r', encoding='utf-8') as f:
             bili_content = f.read()
+
+        # 更新MAX_NOTES_PER_DAY（解决B站爬取数量过少的问题）
+        bili_content = re.sub(r'MAX_NOTES_PER_DAY = \d+', f'MAX_NOTES_PER_DAY = {max_notes}', bili_content)
+        print(f'已更新B站每日最大爬取数量为: {max_notes}')
 
         # 根据time_type更新BILI_SEARCH_MODE
         # time_type == 0 表示不限时间，使用 normal 模式（search_by_keywords方法传递pubtime_begin_s=0, pubtime_end_s=0）
@@ -136,6 +142,19 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
 
         with open(bili_config_file, 'w', encoding='utf-8') as f:
             f.write(bili_content)
+        
+        # 更新B站视频下载配置
+        with open(config_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = re.sub(r'ENABLE_GET_MEIDAS = \w+', f'ENABLE_GET_MEIDAS = {enable_video_download}', content)
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+        if enable_video_download:
+            print(f'已启用B站视频下载，同时开启媒体下载模式')
+        else:
+            print(f'已禁用B站视频下载，同时关闭媒体下载模式')
+        
+        print(f'已更新视频下载为: {enable_video_download}')
     elif platform == 'tavily':
         tavily_config_file = 'config/tavily_config.py'
         with open(tavily_config_file, 'r', encoding='utf-8') as f:
@@ -198,7 +217,7 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
 
 import time
 
-def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_dy_video_download=True, max_retries=3, retry_delay=5):
+def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, enable_sub_comments=False, enable_tavily_img=False, max_images_per_result=3, enable_video_download=True, max_retries=3, retry_delay=5):
     """运行单个平台的爬虫"""
     print(f'=========================================')
     print(f'开始爬取平台: {platform}')
@@ -209,7 +228,7 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     print(f'启用二级评论: {enable_sub_comments}')
     print(f'Tavily图片下载: {enable_tavily_img}')
     print(f'每个搜索结果最大图片数: {max_images_per_result}')
-    print(f'抖音视频下载: {enable_dy_video_download}')
+    print(f'视频下载: {enable_video_download}')
     print(f'最大重试次数: {max_retries}')
     print(f'重试等待时间: {retry_delay}秒')
     print(f'=========================================')
@@ -217,7 +236,7 @@ def run_crawler(platform, keywords, time_type=0, max_notes=15, max_comments=10, 
     for attempt in range(max_retries + 1):
         try:
             # 更新配置
-            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_dy_video_download)
+            update_config(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_video_download)
 
             # 运行爬虫
             exit_code = os.system('python main.py')
@@ -271,9 +290,9 @@ def main():
             print(f'将继续执行下一个平台...')
             print('')
 
-def generate_video_download_markdown(platforms, keywords):
+def generate_video_play_markdown(platforms, keywords):
     """
-    生成视频下载链接的markdown文件
+    生成视频播放链接的markdown文件
 
     Args:
         platforms: 平台列表
@@ -284,7 +303,7 @@ def generate_video_download_markdown(platforms, keywords):
 
     # 添加标题和时间
     timestamp = get_china_current_time()
-    markdown_lines.append(f"# 视频下载链接汇总")
+    markdown_lines.append(f"# 视频播放链接汇总")
     markdown_lines.append(f"")
     markdown_lines.append(f"**搜索关键词**: {keywords}")
     markdown_lines.append(f"**生成时间**: {timestamp}")
@@ -446,12 +465,12 @@ def generate_video_download_markdown(platforms, keywords):
 
     # 写入markdown文件
     sanitized_keywords = keywords.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
-    markdown_filename = data_dir / f"视频下载链接_{sanitized_keywords}.md"
+    markdown_filename = data_dir / f"视频播放链接_{sanitized_keywords}.md"
 
     with open(markdown_filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(markdown_lines))
 
-    print(f"\n已生成视频下载链接markdown文件: {markdown_filename}")
+    print(f"\n已生成视频播放链接markdown文件: {markdown_filename}")
 
 
 def add_images_to_markdown(markdown_lines, keywords):
@@ -746,7 +765,7 @@ def generate_config_json():
 def main():
     """主函数"""
     if len(sys.argv) < 3:
-        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments] [enable_tavily_img] [max_images_per_result] [enable_dy_video_download]')
+        print('用法: python run_crawler.py <platforms> <keywords> [time_type] [max_notes] [max_comments] [enable_sub_comments] [enable_tavily_img] [max_images_per_result] [enable_video_download]')
         print('示例: python run_crawler.py dy,ks 闪充 0 15 10 false false 3 true')
         print('时间类型: 0=不限, 1=一天内, 7=一周内, 180=半年内')
         print('爬取视频数量: 默认为15')
@@ -754,7 +773,7 @@ def main():
         print('启用二级评论: true/false, 默认为false')
         print('Tavily图片下载: true/false, 默认为false')
         print('每个搜索结果最大图片数: 默认为3')
-        print('抖音视频下载: true/false, 默认为true')
+        print('视频下载: true/false, 默认为true')
         sys.exit(1)
 
     platforms_str = sys.argv[1]
@@ -765,7 +784,7 @@ def main():
     enable_sub_comments = sys.argv[6].lower() == 'true' if len(sys.argv) > 6 else False
     enable_tavily_img = sys.argv[7].lower() == 'true' if len(sys.argv) > 7 else False
     max_images_per_result = int(sys.argv[8]) if len(sys.argv) > 8 else 3
-    enable_dy_video_download = sys.argv[9].lower() == 'true' if len(sys.argv) > 9 else True
+    enable_video_download = sys.argv[9].lower() == 'true' if len(sys.argv) > 9 else True
 
     # 将平台字符串转换为数组
     platforms = [p.strip() for p in platforms_str.split(',')]
@@ -773,14 +792,14 @@ def main():
     # 为每个平台运行爬虫
     for platform in platforms:
         try:
-            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_dy_video_download, max_retries=3, retry_delay=5)
+            run_crawler(platform, keywords, time_type, max_notes, max_comments, enable_sub_comments, enable_tavily_img, max_images_per_result, enable_video_download, max_retries=3, retry_delay=5)
         except Exception as e:
             print(f'严重错误: 平台 {platform} 处理过程中发生未捕获的异常: {str(e)}')
             print(f'将继续执行下一个平台...')
             print('')
 
-    # 生成视频下载链接markdown文件
-    generate_video_download_markdown(platforms, keywords)
+    # 生成视频播放链接markdown文件
+    generate_video_play_markdown(platforms, keywords)
 
     # 生成配置文件
     generate_config_json()

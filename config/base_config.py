@@ -76,7 +76,7 @@ ENABLE_IP_PROXY = False
 ENABLE_TIMESTAMP_FILTER = True
 
 # Time filter traversal multiplier (stop searching when reaching N times the target count)
-TIMESTAMP_FILTER_MULTIPLIER = 1.5
+TIMESTAMP_FILTER_MULTIPLIER = 5
 
 # Original target time range (days), passed from run_crawler.py
 TARGET_TIME_RANGE_DAYS = 0
