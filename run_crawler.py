@@ -206,9 +206,6 @@ def update_config(platform, keywords, time_type=0, max_notes=15, max_comments=10
         print(f'已更新Tavily图片下载为: {enable_tavily_img}')
         print(f'已更新Tavily最大图片数量为: {max_images_per_result}')
 
-    if platform == 'dy':
-        print(f'已更新抖音视频下载为: {enable_dy_video_download}')
-
     print(f'已更新PLATFORM为: {platform}')
     print(f'已更新KEYWORDS为: {keywords}')
     print(f'已更新爬取视频数量为: {max_notes}')
