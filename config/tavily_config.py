@@ -40,6 +40,5 @@ ENABLE_TAVILY_IMG = True
 MAX_IMAGES_PER_RESULT = 5
 
 # 搜索国家/地区限制
-# 可选值："us", "cn", "gb", "au", "ca", "de", "fr", "jp", "kr", "in", "br", "mx", "es", "it", "nl", "se", "no", "dk", "fi", "nz", "sg", "hk", "tw", "ru", "ua", "pl", "cz", "ro", "hu", "bg", "hr", "si", "sk", "lt", "lv", "ee", "gr", "cy", "mt", "pt", "at", "be", "ch", "il", "ae", "sa", "qa", "kw", "bh", "om", "ng", "za", "eg", "ke", "ma", "tz", "gh", "sn", "ci", "ml", "ne", "ug", "rw", "bw", "na", "zm", "zw", "mw", "ls", "sw", "tz", "cd", "ao", "mz", "et", "sd", "ss", "dj", "so", "er", "km", "mg", "mu", "sc", "yt", "re", "gf", "gp", "mq", "nc", "pf", "ws", "to", "tv", "vu", "fj", "sb", "nr", "ki", "tv", "ws", "as", "gu", "mp", "pr", "vi", "um", "fm", "mh", "pw"
 # 设置为 None 或空字符串以不限制
-SEARCH_COUNTRY = "cn"
+SEARCH_COUNTRY = "china"
